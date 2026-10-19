@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "checks": [
+    "Validated settings API and invalid patch rejection",
+    "Persistence across real backend restart",
+    "Live storage counts",
+    "Credential-free export includes full quiz marking keys and attached image bytes",
+    "Preference clearing preserves content and provider configuration",
+    "Untrusted origin blocked"
+  ],
+  "fixtureDirectory": "/tmp/lumi-settings-api-2pBDqL"
+}

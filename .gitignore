@@ -1,0 +1,12 @@
+.toolchains/
+.pub-cache/
+.genkit/
+.dart_tool/
+.data/
+build/
+.flutter-plugins-dependencies
+.pub/
+.pub-cache/
+coverage/
+.migration-backup/
+.superdesign/tmp/

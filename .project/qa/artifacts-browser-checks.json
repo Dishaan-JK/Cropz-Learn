@@ -1,0 +1,11 @@
+[
+  "Search full content, read flashcards, list view, source note navigation: passed",
+  "1440px light: loaded, screenshot, no page errors",
+  "1024px light: loaded, screenshot, no page errors",
+  "Mobile drawer navigation light: passed",
+  "390px light: loaded, screenshot, no page errors",
+  "1440px dark: loaded, screenshot, no page errors",
+  "1024px dark: loaded, screenshot, no page errors",
+  "Mobile drawer navigation dark: passed",
+  "390px dark: loaded, screenshot, no page errors"
+]

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "lumi-learning-workspace": {
+      "targetKind": "existing-ui",
+      "projectId": "b50d1a6e-81a5-49a8-8eb7-56dcf9db106c",
+      "baselineDraftId": "54286a35-434e-4bf2-a5d1-9a012ba3bd0c",
+      "activeDraftId": "e81a43eb-87bf-42cd-91f8-4e1339c7315e",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".project/plans/WEB_UI_REDESIGN.md:7:20",
+        ".project/plans/WEB_UI_REDESIGN.md:37:70",
+        ".project/plans/WEB_UI_REDESIGN.md:72:97",
+        "lib/ui/app.dart:1:70",
+        "lib/ui/app.dart:464:641",
+        "lib/ui/workspace_widgets.dart:171:369",
+        "lib/ui/workspace_widgets.dart:431:528",
+        "lib/ui/note_editor.dart:255:427",
+        "lib/ui/lumi_theme.dart",
+        "lib/ui/appearance_storage.dart",
+        "lib/ui/appearance_storage_stub.dart",
+        "lib/ui/appearance_storage_web.dart"
+      ],
+      "fingerprints": {
+        ".project/plans/WEB_UI_REDESIGN.md": "37a938ebbacab0e35e01bf329952c217a4b0dbb176ad5c023bdd6640a2c4eebf",
+        ".superdesign/design-system.md": "98c264e9cdde9a860702526dec559e5d5c691c8a68e17a9753e4ac04eecbfdb0",
+        "lib/ui/app.dart": "990a169dbac6a2aeef04ee3a991a9cc36ddd921a6fcf936b0e7d20fa6770b46f",
+        "lib/ui/appearance_storage.dart": "ac384c73ba6622e8cdf714c634053ec603b637408fe691970b7db0ea41c57ec4",
+        "lib/ui/appearance_storage_stub.dart": "856d99b41ea0383529f4306710d6f383901bc470c3ac32b6fe31fc5190f19461",
+        "lib/ui/appearance_storage_web.dart": "ad545018c4e3c620d1a853eb14f13be8c036d81c391dbab83cf98153ee6a1385",
+        "lib/ui/lumi_theme.dart": "d03b30d41f15c6ec65e12a6781090b3e74ec4473fed1376e6f7bd5566d1770d2",
+        "lib/ui/note_editor.dart": "98b9c653f343f483ea9532e8b75a757dcdea8666054f0c5793bf2b603137d2fe",
+        "lib/ui/workspace_widgets.dart": "fba33429677ca50ebce8ff6b7888e7cb7473007ca5d97cac306d027d0934c32f"
+      },
+      "components": [
+        {
+          "name": "WorkspaceSidebar",
+          "id": "b750143c-4dd9-49f7-b44f-e60c94cd9653",
+          "sourcePath": "lib/ui/workspace_widgets.dart"
+        },
+        {
+          "name": "WorkspaceTopBar",
+          "id": "b4e5cf84-6f4a-4afd-be66-1dcb05f1c881",
+          "sourcePath": "lib/ui/workspace_widgets.dart"
+        }
+      ],
+      "drafts": {
+        "54286a35-434e-4bf2-a5d1-9a012ba3bd0c": {
+          "title": "Current Lumi UI reference",
+          "visualDirection": "Current UI baseline",
+          "currentVersion": 1
+        },
+        "e81a43eb-87bf-42cd-91f8-4e1339c7315e": {
+          "title": "Lumi Academic Workspace \u2014 Artifacts Library",
+          "visualDirection": "Professional warm paper and sage academic library with coordinated dark appearance",
+          "currentVersion": 3
+        },
+        "bd216d7f-dc32-4405-af6f-1b74e8374504": {
+          "title": "Lumi warm paper and sage dark",
+          "visualDirection": "Warm paper and sage, dark mode",
+          "currentVersion": 2
+        }
+      },
+      "updatedAt": "2026-10-19T06:54:15.808586+00:00",
+      "implementationNotes": "Artifacts implementation adds permanent backend archive; context files changed during implementation. Refresh the selected source ranges before subsequent generation."
+    },
+    "settings-page": {
+      "targetKind": "existing-ui",
+      "projectId": "b50d1a6e-81a5-49a8-8eb7-56dcf9db106c",
+      "sourceTarget": "lumi-learning-workspace",
+      "sourceDraftId": "e81a43eb-87bf-42cd-91f8-4e1339c7315e",
+      "activeDraftId": "ec94572a-970b-40c7-85d2-3782cf2520e5",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "lib/ui/settings_page.dart:1:223",
+        "lib/ui/settings_page.dart:226:645",
+        "lib/ui/app.dart:1:70",
+        "lib/ui/workspace_widgets.dart:1:430",
+        "lib/ui/lumi_theme.dart",
+        "lib/ui/appearance_storage.dart",
+        "lib/ui/appearance_storage_stub.dart",
+        "lib/ui/appearance_storage_web.dart"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "98c264e9cdde9a860702526dec559e5d5c691c8a68e17a9753e4ac04eecbfdb0",
+        "lib/ui/app.dart": "8ac015438180d66b3068eb4c9e592ebd82101f3f52afbbbd97f2df1b3b1fc630",
+        "lib/ui/appearance_storage.dart": "f33388c5a17c9acdc197eeaf84e3c4aba33a80034e673c080c8faa2ab679139a",
+        "lib/ui/appearance_storage_stub.dart": "5f93eeccf7ffdc8f268fbb4b9e183a948b4a8a801f6b0f68bd5ea88c6eaabacf",
+        "lib/ui/appearance_storage_web.dart": "1e6a63b40e1c28ff1db7d1ab35ec1ff79adcecf29e869fdc2069f4f3052548a4",
+        "lib/ui/lumi_theme.dart": "6230a0d80a6ddcd9442d8172287612889f488ac8ae76908257dc72e83fd80898",
+        "lib/ui/settings_page.dart": "bb5c277eac2428e461a5301ff9419031190247ef6a771bd6be42331d00bc577a",
+        "lib/ui/workspace_widgets.dart": "7083a6b2aa0337c5a9ab8b0b3fa5c240bc7d954506555b4d6ab15a321b38060e"
+      },
+      "components": [],
+      "drafts": {
+        "ec94572a-970b-40c7-85d2-3782cf2520e5": {
+          "title": "Lumi Design Concept \u2014 Interactive Settings Suite",
+          "visualDirection": "Complete eight-section warm paper and sage settings concept, interactive light and dark modes, responsive mobile, design images only",
+          "currentVersion": 5
+        },
+        "257465ff-bb20-4c19-b6ef-0ec42dfcd3d4": {
+          "title": "Lumi Settings \u2014 Warm Paper & Sage (Dark)",
+          "visualDirection": "Warm paper and sage, dark mode; four switchable settings tabs with persistent theme selection; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        },
+        "bdaeb2f8-518b-422a-a23f-4085dc8d4730": {
+          "title": "Lumi Settings \u2014 AI connection (Light)",
+          "visualDirection": "AI connection, light mode; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        },
+        "e588adf5-31e4-4383-8594-f8002889f18b": {
+          "title": "Lumi Settings \u2014 Personalization (Light)",
+          "visualDirection": "Personalization, light mode; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        },
+        "249bb262-76b9-4e62-bfe5-2c0607e5d538": {
+          "title": "Lumi Settings \u2014 About (Light)",
+          "visualDirection": "About, light mode; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        },
+        "20f831db-ba50-41b8-b2cb-ae6b5d5b94a4": {
+          "title": "Lumi Settings \u2014 AI connection (Dark)",
+          "visualDirection": "AI connection, dark mode; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        },
+        "bbdcd24d-0b5b-4a23-8593-627adc4bd48f": {
+          "title": "Lumi Settings \u2014 Personalization (Dark)",
+          "visualDirection": "Personalization, dark mode; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        },
+        "9ff08860-20d4-43bb-94e0-2742de0bb79f": {
+          "title": "Lumi Settings \u2014 About (Dark)",
+          "visualDirection": "About, dark mode; automatic web accent cycle: sage, blue, light orange, maroon",
+          "currentVersion": 2
+        }
+      },
+      "updatedAt": "2026-10-19T08:41:42.238881+00:00",
+      "designArtifactsPath": "designs/settings",
+      "implementationNotes": "User approved implementation after reviewing design images. Eight Flutter settings sections are implemented with validated backend application preferences, real UI consumers, provider connection controls, credential-free export, privacy preference controls and diagnostics. Scheduled backups and export restoration remain unavailable; see .project/qa/SETTINGS_IMPLEMENTATION.md.",
+      "implementationEvidencePath": ".project/qa/SETTINGS_IMPLEMENTATION.md"
+    }
+  }
+}

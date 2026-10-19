@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+PUB_CACHE=${PUB_CACHE:-$ROOT/.pub-cache}
+export PUB_CACHE
+FLUTTER_SUPPRESS_ANALYTICS=${FLUTTER_SUPPRESS_ANALYTICS:-true}
+export FLUTTER_SUPPRESS_ANALYTICS
+if [ -x "$ROOT/.toolchains/flutter/bin/cache/dart-sdk/bin/dart" ]; then
+  exec "$ROOT/.toolchains/flutter/bin/cache/dart-sdk/bin/dart" "$@"
+fi
+FLUTTER_BIN=$(command -v flutter || true)
+if [ -n "$FLUTTER_BIN" ]; then
+  FLUTTER_ROOT=$(CDPATH= cd -- "$(dirname -- "$FLUTTER_BIN")/.." && pwd)
+  exec "$FLUTTER_ROOT/bin/cache/dart-sdk/bin/dart" "$@"
+fi
+echo "Flutter-bundled Dart SDK not found. Install Flutter stable or copy it to .toolchains/flutter." >&2
+exit 127

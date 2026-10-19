@@ -1,0 +1,51 @@
+00:00 +0: loading /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart
+00:00 +0: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +1: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +2: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +3: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: summarizes score trends and repeated misconceptions
+00:00 +4: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: knowledge links only connect existing notes and omit self links
+00:00 +5: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: persists evidence and rejects unsupported agent or score values
+00:00 +6: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: folder names are required and deleting parent safely promotes children
+00:00 +7: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: captures final academic text once and excludes private/tool messages
+00:01 +8: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: keeps distinct regenerated answers and original capture dates
+00:01 +9: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: saves revision exams as reusable library artifacts
+00:01 +10: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: rejects unsupported or empty generated artifact content
+00:01 +11: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: backend session persistence archives before conversation deletion
+00:01 +12: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:01 +13: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:01 +14: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: serializes concurrent writes without losing objects
+00:01 +15: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: rejects unknown, mistyped, unsupported and unbounded settings
+00:01 +16: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: rejects unknown, mistyped, unsupported and unbounded settings
+00:01 +17: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: serializes concurrent patches and restores the committed values
+00:01 +18: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: failed writes do not commit in-memory preferences and queue recovers
+00:01 +19: /run/media/dishaanjk/DevCode/Learning-App/test/user_preferences_test.dart: extracts a direct preference from a remember command
+00:01 +20: /run/media/dishaanjk/DevCode/Learning-App/test/user_preferences_test.dart: learns directly stated learning preferences
+00:01 +21: /run/media/dishaanjk/DevCode/Learning-App/test/user_preferences_test.dart: does not save unrelated facts or inferred traits
+00:02 +22: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:05 +23: /run/media/dishaanjk/DevCode/Learning-App/test/ui/workspace_files_tree_test.dart: tree nests notes, unfiled data and canvas-linked notes; collapsing hides descendants
+00:06 +24: /run/media/dishaanjk/DevCode/Learning-App/test/ui/workspace_files_tree_test.dart: tree nests notes, unfiled data and canvas-linked notes; collapsing hides descendants
+00:06 +25: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=true
+00:06 +26: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +27: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +28: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +29: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +30: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +31: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +32: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +33: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +34: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +35: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:07 +36: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:08 +37: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:08 +38: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:09 +39: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:09 +40: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:09 +41: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:10 +42: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:10 +43: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:10 +44: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation opens and closes Coach as a medium-width overlay
+00:10 +45: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: failed save keeps staged changes and reports backend error
+00:11 +46: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation settings exposes all eight sections
+00:11 +47: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: mobile navigation and settings search fit without overflow
+00:11 +48: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: mobile navigation and settings search fit without overflow
+00:11 +49: All tests passed!

@@ -1,0 +1,10 @@
+00:00 +0: loading /run/media/dishaanjk/DevCode/Learning-App/test/ui/workspace_files_tree_test.dart
+00:00 +0: /run/media/dishaanjk/DevCode/Learning-App/test/ui/workspace_files_tree_test.dart: tree nests notes, unfiled data and canvas-linked notes; collapsing hides descendants
+00:00 +1: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:01 +2: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:01 +3: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the compact navigation rail at medium width
+00:01 +4: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows a drawer entry point on narrow screens
+00:02 +5: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation opens and closes Coach as a medium-width overlay
+00:02 +6: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation settings exposes all four planned tabs
+00:02 +7: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: warm light and dark themes share the selected accent
+00:02 +8: All tests passed!

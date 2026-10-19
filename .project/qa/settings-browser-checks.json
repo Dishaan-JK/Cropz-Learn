@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "viewportWidths": [
+    1440,
+    1024,
+    390
+  ],
+  "sections": [
+    "General",
+    "Appearance",
+    "AI & models",
+    "Learning & coach",
+    "Workspace & editor",
+    "Artifacts & storage",
+    "Privacy & data",
+    "About & diagnostics"
+  ],
+  "checks": [
+    "Edited name saves to backend and survives reload",
+    "All eight sections render in both light and dark themes on desktop and mobile",
+    "Workspace export downloads valid JSON and excludes provider settings",
+    "Persisted dark theme renders on desktop and mobile"
+  ],
+  "pageErrors": []
+}

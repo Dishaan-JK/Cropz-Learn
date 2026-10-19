@@ -1,0 +1,39 @@
+name: lumi_learning_app
+description: Lumi learning workspace with an integrated local Genkit backend.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  lucide_icons_flutter: 3.1.25
+  genkit: ^1.0.0
+  genkit_anthropic: ^1.0.0
+  genkit_google_genai: ^1.0.0
+  genkit_openai: ^1.0.0
+  crypto: ^3.0.7
+  http: ^1.6.0
+  schemantic: ^1.0.0
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/licenses/DM-Sans-OFL.txt
+    - assets/licenses/Lora-OFL.txt
+  fonts:
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/DMSans-Variable.ttf
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Variable.ttf

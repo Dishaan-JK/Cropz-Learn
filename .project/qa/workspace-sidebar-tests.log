@@ -1,0 +1,41 @@
+00:00 +0: loading /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart
+00:00 +0: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: review intervals adapt after repeated strong results
+00:00 +1: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: groups topic casing and reports due topics once
+00:00 +2: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: summarizes score trends and repeated misconceptions
+00:00 +3: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +4: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +5: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: knowledge links only connect existing notes and omit self links
+00:00 +6: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: folder names are required and deleting parent safely promotes children
+00:00 +7: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: captures final academic text once and excludes private/tool messages
+00:00 +8: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: keeps distinct regenerated answers and original capture dates
+00:00 +9: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: saves revision exams as reusable library artifacts
+00:00 +10: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: rejects unsupported or empty generated artifact content
+00:00 +11: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: backend session persistence archives before conversation deletion
+00:00 +12: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +13: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +14: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +15: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +16: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +17: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:01 +18: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +19: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +20: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +21: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +22: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +23: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +24: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:03 +25: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:03 +26: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:03 +27: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=true
+00:03 +28: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the compact navigation rail at medium width
+00:03 +29: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 700.0 dark=false
+00:04 +30: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows a drawer entry point on narrow screens
+00:04 +31: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 700.0 dark=true
+00:04 +32: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation opens and closes Coach as a medium-width overlay
+00:04 +33: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation opens and closes Coach as a medium-width overlay
+00:04 +34: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 1180.0 dark=true
+00:04 +35: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation settings exposes all four planned tabs
+00:05 +36: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: search filters full content and clears empty results
+00:05 +37: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: search filters full content and clears empty results
+00:05 +38: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: failed load retries and empty library has creation actions
+00:05 +39: All tests passed!

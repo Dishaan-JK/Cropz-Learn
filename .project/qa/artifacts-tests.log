@@ -1,0 +1,32 @@
+00:00 +0: loading /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart
+00:00 +0: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +1: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: knowledge links only connect existing notes and omit self links
+00:00 +2: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: folder names are required and deleting parent safely promotes children
+00:00 +3: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: captures final academic text once and excludes private/tool messages
+00:00 +4: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: keeps distinct regenerated answers and original capture dates
+00:00 +5: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: backend session persistence archives before conversation deletion
+00:00 +6: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: backfills available history and skips damaged JSON
+00:01 +7: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: serializes concurrent writes without losing objects
+00:01 +8: /run/media/dishaanjk/DevCode/Learning-App/test/user_preferences_test.dart: extracts a direct preference from a remember command
+00:01 +9: /run/media/dishaanjk/DevCode/Learning-App/test/user_preferences_test.dart: learns directly stated learning preferences
+00:01 +10: /run/media/dishaanjk/DevCode/Learning-App/test/user_preferences_test.dart: does not save unrelated facts or inferred traits
+00:01 +11: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +12: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +13: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +14: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +15: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +16: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:03 +17: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:04 +18: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the compact navigation rail at medium width
+00:04 +19: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=true
+00:04 +20: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows a drawer entry point on narrow screens
+00:05 +21: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 700.0 dark=false
+00:05 +22: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation opens and closes Coach as a medium-width overlay
+00:05 +23: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation opens and closes Coach as a medium-width overlay
+00:06 +24: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 1180.0 dark=false
+00:06 +25: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation settings exposes all four planned tabs
+00:06 +26: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation settings exposes all four planned tabs
+00:06 +27: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: search filters full content and clears empty results
+00:06 +28: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: search filters full content and clears empty results
+00:07 +29: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: failed load retries and empty library has creation actions
+00:07 +30: All tests passed!

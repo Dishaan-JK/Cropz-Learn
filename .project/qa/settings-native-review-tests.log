@@ -1,0 +1,5 @@
+00:00 +0: loading /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart
+00:00 +0: eight sections, editable text, persistence and discard
+00:02 +1: failed save keeps staged changes and reports backend error
+00:03 +2: mobile navigation and settings search fit without overflow
+00:03 +3: All tests passed!

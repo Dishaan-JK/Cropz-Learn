@@ -1,0 +1,100 @@
+{
+  "errors": [],
+  "views": [
+    {
+      "page": "general",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "appearance",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "ai",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "learning",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "workspace",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "artifacts",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "privacy",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "about",
+      "theme": "light",
+      "width": 1600
+    },
+    {
+      "page": "general",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "appearance",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "ai",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "learning",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "workspace",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "artifacts",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "privacy",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "about",
+      "theme": "dark",
+      "width": 1600
+    },
+    {
+      "page": "appearance",
+      "theme": "light",
+      "width": 390
+    },
+    {
+      "page": "ai",
+      "theme": "light",
+      "width": 390
+    },
+    {
+      "page": "privacy",
+      "theme": "light",
+      "width": 390
+    }
+  ]
+}

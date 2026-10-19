@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+PUB_CACHE=${PUB_CACHE:-$ROOT/.pub-cache}
+export PUB_CACHE
+FLUTTER_SUPPRESS_ANALYTICS=${FLUTTER_SUPPRESS_ANALYTICS:-true}
+export FLUTTER_SUPPRESS_ANALYTICS
+if [ -x "$ROOT/.toolchains/flutter/bin/flutter" ]; then
+exec "$ROOT/.toolchains/flutter/bin/flutter" "$@"
+fi
+FLUTTER_BIN=$(command -v flutter || true)
+if [ -z "$FLUTTER_BIN" ]; then
+  echo "Flutter SDK not found. Install Flutter stable or copy it to .toolchains/flutter." >&2
+  exit 127
+fi
+exec "$FLUTTER_BIN" "$@"

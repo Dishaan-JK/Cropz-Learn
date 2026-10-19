@@ -1,0 +1,100 @@
+00:00 +0: loading /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart
+00:00 +0: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: review intervals adapt after repeated strong results
+00:00 +1: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: note create, update, search and delete survive reload
+00:00 +2: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: groups topic casing and reports due topics once
+00:00 +3: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: knowledge links only connect existing notes and omit self links
+00:00 +4: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: summarizes score trends and repeated misconceptions
+00:00 +5: /run/media/dishaanjk/DevCode/Learning-App/test/workspace_store_regression_test.dart: folder names are required and deleting parent safely promotes children
+00:00 +6: /run/media/dishaanjk/DevCode/Learning-App/test/learning_record_test.dart: persists evidence and rejects unsupported agent or score values
+00:00 +7: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: captures final academic text once and excludes private/tool messages
+00:00 +8: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +9: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +10: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +11: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +12: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +13: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +14: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +15: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +16: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +17: /run/media/dishaanjk/DevCode/Learning-App/test/canvas_creation_time_test.dart: canvas creation time survives layout edits, detach and disk reload
+00:00 +18: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: backend session persistence archives before conversation deletion
+00:00 +19: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: backend session persistence archives before conversation deletion
+00:00 +20: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: rejects unknown, mistyped, unsupported and unbounded settings
+00:00 +21: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: rejects unknown, mistyped, unsupported and unbounded settings
+00:00 +22: /run/media/dishaanjk/DevCode/Learning-App/test/academic_artifacts_test.dart: serializes concurrent writes without losing objects
+00:00 +23: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: serializes concurrent patches and restores the committed values
+00:00 +24: /run/media/dishaanjk/DevCode/Learning-App/test/app_settings_test.dart: failed writes do not commit in-memory preferences and queue recovers
+00:00 +25: /run/media/dishaanjk/DevCode/Learning-App/test/local_models_test.dart: known transformer metadata increases the KV allowance before loading
+00:00 +26: /run/media/dishaanjk/DevCode/Learning-App/test/local_models_test.dart: RAM checks preserve headroom and never add shared Intel GPU RAM
+00:00 +27: /run/media/dishaanjk/DevCode/Learning-App/test/local_models_test.dart: CPU-only, NVIDIA and AMD budgets are classified without GPU runtime claims
+00:00 +28: /run/media/dishaanjk/DevCode/Learning-App/test/local_models_test.dart: missing GPU and inadequate VRAM block; unavailable disk is explicit
+00:00 +29: /run/media/dishaanjk/DevCode/Learning-App/test/local_models_test.dart: zero free GPU memory is not treated as an unknown budget
+00:00 +30: /run/media/dishaanjk/DevCode/Learning-App/test/local_models_test.dart: container RAM limits cap available host memory before admission
+00:01 +31: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +32: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +33: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +34: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +35: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +36: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +37: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +38: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +39: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +40: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +41: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +42: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:01 +43: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +44: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +45: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:02 +46: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:03 +47: /run/media/dishaanjk/DevCode/Learning-App/test/ui/artifacts_page_test.dart: library and reader fit width 390.0 dark=false
+00:04 +48: /run/media/dishaanjk/DevCode/Learning-App/test/ui/local_model_settings_test.dart: Hugging Face check/download/activation 390.0 allowed=false
+00:04 +49: /run/media/dishaanjk/DevCode/Learning-App/test/ui/local_model_settings_test.dart: Hugging Face check/download/activation 390.0 allowed=false
+00:04 +50: /run/media/dishaanjk/DevCode/Learning-App/test/ui/learning_object_player_test.dart: saved deck review 390.0 dark=false
+00:04 +51: /run/media/dishaanjk/DevCode/Learning-App/test/ui/learning_object_player_test.dart: saved deck review 390.0 dark=false
+00:04 +52: /run/media/dishaanjk/DevCode/Learning-App/test/ui/learning_object_player_test.dart: saved deck review 390.0 dark=false
+00:04 +53: /run/media/dishaanjk/DevCode/Learning-App/test/ui/learning_object_player_test.dart: saved deck review 390.0 dark=false
+00:05 +54: /run/media/dishaanjk/DevCode/Learning-App/test/ui/learning_object_player_test.dart: saved deck review 390.0 dark=false
+00:05 +55: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:05 +56: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:05 +57: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +58: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +59: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +60: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +61: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +62: /run/media/dishaanjk/DevCode/Learning-App/test/ui/lumi_responsive_shell_test.dart: Lumi responsive navigation shows the full workspace sidebar on wide screens
+00:06 +63: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +64: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +65: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +66: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +67: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +68: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +69: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:07 +70: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +71: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +72: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +73: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +74: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +75: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +76: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +77: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +78: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +79: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +80: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:08 +81: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:09 +82: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:09 +83: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:10 +84: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:10 +85: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:10 +86: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:10 +87: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:11 +88: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 390.0
+00:11 +89: /run/media/dishaanjk/DevCode/Learning-App/test/ui/learning_object_player_test.dart: saved quiz review 1180.0 dark=true
+00:11 +90: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: new edits during saving remain unsaved and can be saved again
+00:11 +91: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 1024.0
+00:13 +92: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: eight sections, editable text, persistence and discard
+00:13 +93: /run/media/dishaanjk/DevCode/Learning-App/test/ui/home_navigation_test.dart: Home returns from Settings and Canvas with existing notes at 1440.0
+00:15 +94: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: Canvas colour controls save, validate, preview and discard at 390.0
+00:15 +95: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: Canvas colour controls save, validate, preview and discard at 1440.0
+00:17 +96: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: failed save keeps staged changes and reports backend error
+00:17 +97: /run/media/dishaanjk/DevCode/Learning-App/test/ui/settings_page_test.dart: mobile navigation and settings search fit without overflow
+00:17 +98: All tests passed!

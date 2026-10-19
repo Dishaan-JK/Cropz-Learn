@@ -1,0 +1,128 @@
+[
+  {
+    "image": "images/01-general-dark.png",
+    "width": 1600,
+    "height": 1369,
+    "bytes": 137433
+  },
+  {
+    "image": "images/01-general-light.png",
+    "width": 1600,
+    "height": 1369,
+    "bytes": 137221
+  },
+  {
+    "image": "images/02-appearance-dark.png",
+    "width": 1600,
+    "height": 1331,
+    "bytes": 154102
+  },
+  {
+    "image": "images/02-appearance-light.png",
+    "width": 1600,
+    "height": 1331,
+    "bytes": 153388
+  },
+  {
+    "image": "images/03-ai-cloud-dark.png",
+    "width": 1600,
+    "height": 1274,
+    "bytes": 142231
+  },
+  {
+    "image": "images/03-ai-cloud-light.png",
+    "width": 1600,
+    "height": 1274,
+    "bytes": 146889
+  },
+  {
+    "image": "images/03-ai-dark.png",
+    "width": 1600,
+    "height": 1274,
+    "bytes": 142747
+  },
+  {
+    "image": "images/03-ai-light.png",
+    "width": 1600,
+    "height": 1274,
+    "bytes": 142338
+  },
+  {
+    "image": "images/04-learning-dark.png",
+    "width": 1600,
+    "height": 1447,
+    "bytes": 164378
+  },
+  {
+    "image": "images/04-learning-light.png",
+    "width": 1600,
+    "height": 1447,
+    "bytes": 163657
+  },
+  {
+    "image": "images/05-workspace-dark.png",
+    "width": 1600,
+    "height": 1507,
+    "bytes": 147396
+  },
+  {
+    "image": "images/05-workspace-light.png",
+    "width": 1600,
+    "height": 1507,
+    "bytes": 147066
+  },
+  {
+    "image": "images/06-artifacts-dark.png",
+    "width": 1600,
+    "height": 1396,
+    "bytes": 159796
+  },
+  {
+    "image": "images/06-artifacts-light.png",
+    "width": 1600,
+    "height": 1396,
+    "bytes": 159456
+  },
+  {
+    "image": "images/07-privacy-dark.png",
+    "width": 1600,
+    "height": 1322,
+    "bytes": 146697
+  },
+  {
+    "image": "images/07-privacy-light.png",
+    "width": 1600,
+    "height": 1322,
+    "bytes": 146631
+  },
+  {
+    "image": "images/08-about-dark.png",
+    "width": 1600,
+    "height": 1100,
+    "bytes": 125145
+  },
+  {
+    "image": "images/08-about-light.png",
+    "width": 1600,
+    "height": 1100,
+    "bytes": 124444
+  },
+  {
+    "image": "images/ai-mobile.png",
+    "width": 390,
+    "height": 1599,
+    "bytes": 85187
+  },
+  {
+    "image": "images/appearance-mobile.png",
+    "width": 390,
+    "height": 1614,
+    "bytes": 80028
+  },
+  {
+    "image": "images/privacy-mobile.png",
+    "width": 390,
+    "height": 1549,
+    "bytes": 86372
+  }
+]
