@@ -1,0 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
+import { getGraph, lumiQueryKeys, type LumiNote } from '../../lib/lumi-api'
+
+export function GraphWorkspace({ onOpenNote }: { onOpenNote: (noteId: string) => void }) {
+  const graph = useQuery({ queryKey: lumiQueryKeys.graph, queryFn: getGraph })
+  const nodes = graph.data?.nodes ?? []
+  const edges = graph.data?.edges.flatMap((edge) => edge && typeof edge === 'object' && typeof edge.from === 'string' && typeof edge.to === 'string' ? [{ from: edge.from, to: edge.to }] : []) ?? []
+  const title = (id: string) => nodes.find((node: LumiNote) => node.id === id)?.title || 'Untitled note'
+  return <section className="learning-view"><header><p className="eyebrow">Knowledge map</p><h1>Graph</h1><p>See how your notes connect through [[note links]].</p></header>{graph.isLoading ? <p>Building your map…</p> : graph.isError ? <p role="alert">Your knowledge graph could not be loaded.</p> : nodes.length ? <><div className="graph-link-summary"><strong>{edges.length}</strong><span>{edges.length === 1 ? 'connected relationship' : 'connected relationships'}</span></div><div className="graph-list">{nodes.map((node) => { const outgoing = edges.filter((edge) => edge.from === node.id); const incoming = edges.filter((edge) => edge.to === node.id); return <article key={node.id}><button className="graph-node-title" type="button" onClick={() => onOpenNote(node.id)}>{node.title || 'Untitled note'}</button><p>{node.content || 'No preview available.'}</p>{outgoing.length > 0 && <div className="graph-connections"><span>Links to</span>{outgoing.map((edge) => <button key={`${edge.from}-${edge.to}`} type="button" onClick={() => onOpenNote(edge.to)}>{title(edge.to)}</button>)}</div>}{incoming.length > 0 && <div className="graph-connections"><span>Linked from</span>{incoming.map((edge) => <button key={`${edge.from}-${edge.to}`} type="button" onClick={() => onOpenNote(edge.from)}>{title(edge.from)}</button>)}</div>}</article> })}</div></> : <p>Create notes to begin a connected knowledge map.</p>}</section>
+}

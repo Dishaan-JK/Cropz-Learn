@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Local environment and workspace data
+.env
+.env.*
+!.env.example
+!.env.*.example
+.data/
+
+# Tool caches and generated test output
+.vite/
+.cache/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local design-tool session state (keep design-system.md versionable)
+.superdesign/resume.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
