@@ -1,6 +1,10 @@
 # Lumi Learning App
 
-Lumi is a single Flutter/Dart project containing the learning workspace UI and its local Genkit backend. The Flutter client and HTTP backend share one Dart package, while the backend remains a separate process because the Flutter web app runs in the browser.
+Lumi is a learning workspace built with Flutter and Dart. It brings notes, interactive learning materials, and an AI learning coach together in one app. The browser client and local Genkit HTTP backend share a Dart package; the backend runs as a separate process alongside the web app.
+
+> **Beta notice:** Local model support is under active testing. Tool calling, performance, and generated results vary by model and hardware; review outputs before relying on them.
+
+The project is evolving quickly. Contributions and issue reports are welcome; please see the setup and verification steps below before opening a pull request.
 
 ## Project structure
 
@@ -82,6 +86,11 @@ Run checks from the project root:
 In **Settings → AI & models → Download from Hugging Face**, enter a public
 repository as `owner/model-GGUF`, inspect its files, select a GGUF checkpoint,
 choose a context length and execution mode, and press **Check compatibility**.
+Model search can require a minimum context window (2K, 4K, or 8K tokens) and
+only lists repositories whose Hugging Face GGUF metadata advertises a tool-aware
+chat template and at least that context length. Missing metadata is treated as
+unsupported for discovery; this metadata is a filter, not proof that the model
+will follow Lumi's tools correctly.
 The backend detects CPU model/threads, available and total RAM, NVIDIA/AMD/Intel
 graphics, available GPU telemetry, and readable Ollama storage capacity. Intel
 and other integrated graphics share RAM; this memory is counted once. Linux
@@ -120,6 +129,20 @@ by Ollama. Downloads continue if the page closes; successful pending activation
 resumes when AI settings is reopened. Interrupted backend jobs require a fresh
 compatibility check. Existing conversations retain their old messages.
 
+The active-model card keeps the connection state simple: **Active** means the
+configured Lumi model is resident in Ollama RAM, **Sleeping** means the connection
+is saved but the model is not resident, and **Error** means Lumi cannot reach
+Ollama. It shows the GGUF model size, RAM overhead, and all compatibility
+warnings. **Settings → AI & models → Local model safety** asks whether to
+automatically protect the computer. When enabled, the
+backend checks every two seconds for critical low RAM—below 3% of total, with a
+512 MiB floor. It cancels only Lumi-managed model work and asks Ollama to unload
+Lumi's model from RAM. Workspace data, settings, conversation history, and
+downloaded weights are preserved; the backend and unrelated applications are not
+terminated.
+The configured model identifier is deliberately not shown in this settings card
+or the Coach panel header.
+
 This first version supports public, ungated, root-level single-file GGUF text/chat
 checkpoints. Private/gated repositories, split shards, projector files, embeddings,
 and arbitrary Transformers/Safetensors runtimes are not supported by this flow.
@@ -139,6 +162,12 @@ Lumi backend loads them. It leaves the downloaded Ollama model/alias installed
 and unloads the bounded test model afterwards; it preserves the real Lumi data.
 Implementation follows the official [Hugging Face/Ollama integration](https://huggingface.co/docs/hub/en/ollama)
 and [Ollama hardware support](https://docs.ollama.com/gpu).
+
+When a local model is active or sleeping, **Test Lumi agent capability** sends a
+short synthetic prompt through Genkit's streaming agent path and asks the model
+to execute a harmless test tool. It includes no workspace notes. A passing
+result verifies that the configured model can complete this basic agent tool
+call; it does not guarantee every Teacher prompt or learning task will succeed.
 
 ## Teaching, assessment, and review agents
 
@@ -165,6 +194,22 @@ Use **Home** in the sidebar, compact navigation rail, or mobile drawer to return
 to the welcome page from any workspace view. Home offers shortcuts to Artifacts,
 Canvas, Coach, and note creation. It remains available when notes already exist.
 You can also select Home under **Settings → General → Start page**.
+
+## Local workspace resume and history
+
+Notes, folders, canvases, artifacts, and settings are stored by the local backend
+under `.data/` (or `LUMI_DATA_DIR`) and reload when Lumi starts again. The browser
+also remembers the last workspace view, selected note, folder, canvas, and Coach
+panel state on this machine, so the workspace reopens where it was left.
+On a wide desktop, drag the slim dividers beside the sidebar and Coach panel to
+resize the three workspace panes. Their widths are restored locally too; the
+resizers are intentionally not shown in Settings, the Coach header, or compact
+layouts.
+
+The top bar has **Undo** and **Redo** controls for the current browser session.
+They track the latest 40 saved note edits and moves, folder renames, and canvas
+layout changes. The durable workspace changes remain local; action history itself
+is intentionally cleared on browser reload.
 
 ## Academic artifacts
 
@@ -247,12 +292,19 @@ including notes, folders, complete canvases with assessment marking data, archiv
 academic artifacts, learning records, explicit preferences, application settings,
 and attached images. Provider credentials and conversation session files are
 excluded. Exports contain personal academic content; store them privately.
-Automatic backups and restoring exports are not implemented in this version.
+Automatic backups are not implemented in this version.
 
 **Privacy & data** can forget individual or all learning preferences and stage a
 reset of application defaults. These actions preserve notes, canvases and the
 artifact archive. **About & diagnostics** shows real service/count/storage data
 and copies a report containing no credentials or academic content. Service
 availability does not prove a successful model response; use **Test connection**.
+
+**Privacy & data → Import workspace export JSON** asks you to choose a Lumi
+workspace export. After a separate confirmation, it replaces the exported
+workspace data: notes, folders, canvases, artifacts, learning records,
+preferences, application settings, and attached images. Newer current data in
+those areas is overwritten. Conversation sessions, provider connections, and
+credentials are not included in exports and are left unchanged.
 
 Settings implementation evidence is in `.project/qa/SETTINGS_IMPLEMENTATION.md`.

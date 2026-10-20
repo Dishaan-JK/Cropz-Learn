@@ -27,6 +27,24 @@ bool _isQuotaExhausted(Object error) {
           text.contains('exhausted'));
 }
 
+/// Routes a learning request before opening the specialist chat session.
+String learningAgentPathForRequest(String request) {
+  final text = request.toLowerCase();
+  if (RegExp(r'\b(diagnos|strengths?|weakness|progress|learning pattern)')
+      .hasMatch(text)) {
+    return '/api/agents/reviewer';
+  }
+  if (RegExp(r'\b(test|quiz|exam|assignment|assess|grade|mark)')
+      .hasMatch(text)) {
+    return '/api/agents/tester';
+  }
+  if (RegExp(r'\b(learn|teach|explain|understand|new topic|new subject)')
+      .hasMatch(text)) {
+    return '/api/agents/study';
+  }
+  return '/api/assistant';
+}
+
 class CoachPanel extends StatefulWidget {
   const CoachPanel({
     required this.note,
@@ -52,7 +70,6 @@ class CoachPanel extends StatefulWidget {
 class _CoachPanelState extends State<CoachPanel> {
   final _api = LumiApi();
   String _agentPath = '/api/assistant';
-  String _modelLabel = 'Checking model…';
   late AgentApi _agent = remoteAgent(url: '$lumiServiceUrl$_agentPath');
   late var _chat = _agent.chat();
   final _input = TextEditingController();
@@ -71,7 +88,6 @@ class _CoachPanelState extends State<CoachPanel> {
         readAppearanceValue('lumi.chat.active-agent') ?? '/api/assistant';
     _agent = remoteAgent(url: '$lumiServiceUrl$_agentPath');
     _chat = _agent.chat();
-    _loadModelLabel();
     _loadDueReviews();
     _restoreChat();
   }
@@ -152,20 +168,9 @@ class _CoachPanelState extends State<CoachPanel> {
     }
   }
 
-  Future<void> _loadModelLabel() async {
-    try {
-      final config = await _api.config();
-      if (mounted) {
-        setState(
-            () => _modelLabel = '${config['provider']} · ${config['model']}');
-      }
-    } catch (_) {
-      if (mounted) setState(() => _modelLabel = 'Model configured on backend');
-    }
-  }
-
-  void _selectAgent(String path) {
-    if (path == _agentPath || _sending) return;
+  void _routeRequest(String request) {
+    final path = learningAgentPathForRequest(request);
+    if (path == _agentPath) return;
     _agent.close();
     writeAppearanceValue('lumi.chat.active-agent', path);
     setState(() {
@@ -176,7 +181,6 @@ class _CoachPanelState extends State<CoachPanel> {
       _error = null;
       _restoring = false;
     });
-    _restoreChat();
   }
 
   Future<void> _clearConversation() async {
@@ -230,6 +234,7 @@ class _CoachPanelState extends State<CoachPanel> {
     final text = (suggestion ?? _input.text).trim();
     if (text.isEmpty || _sending || _restoring) return;
     _input.clear();
+    _routeRequest(text);
     final settings = AppSettingsScope.settingsOf(context);
     final note = settings.flag('coachContext') ? widget.note : null;
     var requestText = note == null
@@ -429,9 +434,7 @@ class _CoachPanelState extends State<CoachPanel> {
           _CoachHeader(
             onClose: widget.onClose,
             agentPath: _agentPath,
-            modelLabel: _modelLabel,
             onManageProfile: _manageProfile,
-            onAgentChanged: _selectAgent,
             onClearConversation: _clearConversation,
           ),
           if (_dueReviewTopics.isNotEmpty)
@@ -530,20 +533,15 @@ class _CoachHeader extends StatelessWidget {
   const _CoachHeader(
       {required this.onClose,
       required this.agentPath,
-      required this.modelLabel,
       required this.onManageProfile,
-      required this.onAgentChanged,
       required this.onClearConversation});
   final VoidCallback onClose;
   final String agentPath;
-  final String modelLabel;
   final VoidCallback onManageProfile;
-  final ValueChanged<String> onAgentChanged;
   final VoidCallback onClearConversation;
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 420;
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -575,41 +573,7 @@ class _CoachHeader extends StatelessWidget {
                       .textTheme
                       .titleSmall
                       ?.copyWith(fontWeight: FontWeight.w700)),
-              if (!compact)
-                Tooltip(
-                  message: '$modelLabel · Can search your notes',
-                  child: Text(
-                    modelLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                ),
             ])),
-        SizedBox(
-          width: compact ? 72 : 112,
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isDense: true,
-              isExpanded: true,
-              value: agentPath,
-              items: const [
-                DropdownMenuItem(value: '/api/assistant', child: Text('Coach')),
-                DropdownMenuItem(
-                    value: '/api/agents/study', child: Text('Teach')),
-                DropdownMenuItem(
-                    value: '/api/agents/connections', child: Text('Connect')),
-                DropdownMenuItem(
-                    value: '/api/agents/tester', child: Text('Test')),
-                DropdownMenuItem(
-                    value: '/api/agents/reviewer', child: Text('Review')),
-              ],
-              onChanged: (value) {
-                if (value != null) onAgentChanged(value);
-              },
-            ),
-          ),
-        ),
         IconButton(
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints.tightFor(width: 40, height: 40),

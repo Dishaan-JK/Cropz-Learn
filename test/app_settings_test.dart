@@ -47,6 +47,7 @@ void main() {
     expect(restored.settings.text('theme'), 'dark');
     expect(restored.settings.text('workspaceName'), 'Biology');
     expect(restored.settings.flag('coachContext'), true);
+    expect(restored.settings.flag('autoUnloadModelOnLowRam'), false);
     expect(await File('${file.path}.tmp').exists(), false);
     expect(() => store.save({'unknown': 1}), throwsFormatException);
     expect(restored.settings.text('theme'), 'dark');

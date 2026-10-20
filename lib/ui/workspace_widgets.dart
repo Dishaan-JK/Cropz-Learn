@@ -6,16 +6,9 @@ import '../data/lumi_api.dart';
 import 'lumi_theme.dart';
 import 'workspace_files_tree.dart';
 
-String _agentLabel(String path) => switch (path) {
-      '/api/agents/study' => 'Teacher',
-      '/api/agents/tester' => 'Tester',
-      '/api/agents/reviewer' => 'Progress Reviewer',
-      '/api/agents/connections' => 'Connections Guide',
-      _ => 'Coach',
-    };
-
 class WorkspaceSidebar extends StatelessWidget {
   const WorkspaceSidebar({
+    required this.width,
     required this.notes,
     required this.canvases,
     required this.selectedCanvasId,
@@ -36,11 +29,11 @@ class WorkspaceSidebar extends StatelessWidget {
     required this.workspaceView,
     required this.onWorkspaceView,
     required this.recentChats,
-    required this.onSelectAgent,
     required this.onOpenChat,
     super.key,
   });
 
+  final double width;
   final List<Note> notes;
   final List<LearningCanvas> canvases;
   final String? selectedCanvasId;
@@ -61,7 +54,6 @@ class WorkspaceSidebar extends StatelessWidget {
   final String workspaceView;
   final ValueChanged<String> onWorkspaceView;
   final List<({String agentPath, String sessionId, String title})> recentChats;
-  final ValueChanged<String> onSelectAgent;
   final ValueChanged<({String agentPath, String sessionId})> onOpenChat;
 
   @override
@@ -78,7 +70,7 @@ class WorkspaceSidebar extends StatelessWidget {
         ),
     ]..sort((a, b) => b.created.compareTo(a.created));
     return Container(
-      width: 264,
+      width: width,
       decoration: BoxDecoration(
         color: Theme.of(context).extension<LumiTokens>()!.surface,
         border:
@@ -158,26 +150,6 @@ class WorkspaceSidebar extends StatelessWidget {
                   onTap: () => onWorkspaceView('graph')),
               Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 16, 8),
-                  child: Text('LEARNING AGENTS',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          letterSpacing: 1, color: colors.onSurfaceVariant))),
-              _NavRow(
-                  icon: LucideIcons.bookOpen,
-                  label: 'Teaching',
-                  selected: false,
-                  onTap: () => onSelectAgent('/api/agents/study')),
-              _NavRow(
-                  icon: LucideIcons.clipboardCheck,
-                  label: 'Testing',
-                  selected: false,
-                  onTap: () => onSelectAgent('/api/agents/tester')),
-              _NavRow(
-                  icon: LucideIcons.chartNoAxesCombined,
-                  label: 'Progress review',
-                  selected: false,
-                  onTap: () => onSelectAgent('/api/agents/reviewer')),
-              Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 16, 8),
                   child: Text('LATEST CHATS',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           letterSpacing: 1, color: colors.onSurfaceVariant))),
@@ -195,8 +167,6 @@ class WorkspaceSidebar extends StatelessWidget {
                   leading: const Icon(LucideIcons.messageCircle, size: 17),
                   title: Text(chat.title,
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(_agentLabel(chat.agentPath),
-                      style: Theme.of(context).textTheme.labelSmall),
                   onTap: () => onOpenChat(
                       (agentPath: chat.agentPath, sessionId: chat.sessionId)),
                 ),
@@ -336,6 +306,10 @@ class WorkspaceTopBar extends StatelessWidget {
       required this.onCreate,
       required this.onSearch,
       required this.onSettings,
+      required this.canUndo,
+      required this.canRedo,
+      required this.onUndo,
+      required this.onRedo,
       this.onMenu,
       this.viewTitle,
       super.key});
@@ -348,6 +322,8 @@ class WorkspaceTopBar extends StatelessWidget {
   final VoidCallback onCreate;
   final ValueChanged<String> onSearch;
   final VoidCallback onSettings;
+  final bool canUndo, canRedo;
+  final VoidCallback onUndo, onRedo;
   final VoidCallback? onMenu;
 
   @override
@@ -390,6 +366,14 @@ class WorkspaceTopBar extends StatelessWidget {
             tooltip: 'New note',
             onPressed: onCreate,
             icon: const Icon(LucideIcons.plus)),
+        IconButton(
+            tooltip: 'Undo last saved workspace change',
+            onPressed: canUndo ? onUndo : null,
+            icon: const Icon(LucideIcons.undo2)),
+        IconButton(
+            tooltip: 'Redo last undone workspace change',
+            onPressed: canRedo ? onRedo : null,
+            icon: const Icon(LucideIcons.redo2)),
         if (note != null)
           IconButton(
               tooltip: 'Delete note',

@@ -29,6 +29,9 @@ class FixedHardware extends HardwareProbe {
   Future<Map<String, dynamic>> inspect() async => value;
 }
 
+Future<ProcessResult> pickDirectory(String path) async =>
+    ProcessResult(1, 0, '$path\n', '');
+
 final ggufCatalog = {
   'sha': 'revision-one',
   'gated': false,
@@ -49,8 +52,173 @@ final ggufCatalog = {
 };
 
 void main() {
-  test('known transformer metadata increases the KV allowance before loading',
-      () {
+  test('native folder picker returns a selected existing Ollama directory',
+      () async {
+    final directory =
+        await Directory.systemTemp.createTemp('lumi-folder-picker-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    final manager = LocalModels(
+      jobFile: File('${directory.path}/job.json'),
+      providerFile: File('${directory.path}/provider.json'),
+      hardware: FixedHardware(host()),
+      directoryPicker: (_, __) => pickDirectory(directory.path),
+    );
+
+    expect(await manager.pickModelDirectory(null),
+        {'cancelled': false, 'path': directory.path});
+    expect(manager.hardware.modelDirectory, directory.path);
+  });
+
+  test('critical low RAM unloads the configured Lumi model without data loss',
+      () async {
+    final directory =
+        await Directory.systemTemp.createTemp('lumi-model-safety-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    var resident = true;
+    var unloaded = false;
+    final manager = LocalModels(
+      jobFile: File('${directory.path}/job.json'),
+      providerFile: File('${directory.path}/provider.json'),
+      hardware: FixedHardware({
+        ...host(),
+        'memory': {
+          'totalBytes': 32 * gibibyte,
+          'availableBytes': 256 * 1024 * 1024,
+        },
+      }),
+      automaticSafetyEnabled: () => true,
+      runtimeClient: () => MockClient((request) async {
+        final body = request.body.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(request.body) as Map<String, dynamic>;
+        if (request.url.path == '/api/generate') {
+          expect(body['model'], 'lumi-safe');
+          expect(body['keep_alive'], 0);
+          unloaded = true;
+          resident = false;
+        }
+        return http.Response(
+            jsonEncode(switch (request.url.path) {
+              '/api/version' => {'version': 'test'},
+              '/api/ps' => {
+                  'models': [
+                    if (resident)
+                      {
+                        'name': 'lumi-safe',
+                        'size': gibibyte,
+                        'size_vram': 0,
+                        'context_length': 4096,
+                      }
+                  ]
+                },
+              _ => {},
+            }),
+            200);
+      }),
+    );
+    addTearDown(manager.close);
+    await manager.providerFile
+        .writeAsString('{"provider":"ollama","model":"lumi-safe"}');
+
+    final result = await manager.status();
+
+    expect(unloaded, isTrue);
+    expect((result['connection'] as Map)['state'], 'sleeping');
+    expect((result['connection'] as Map)['message'], contains('preserved'));
+    expect(await manager.providerFile.exists(), isTrue);
+  });
+
+  test('live catalog is scoped to public chat GGUF models and paginates safely',
+      () async {
+    final directory =
+        await Directory.systemTemp.createTemp('lumi-model-catalog-test-');
+    addTearDown(() => directory.delete(recursive: true));
+    Uri? requested;
+    final next = Uri.https('huggingface.co', '/api/models', {
+      'filter': 'gguf',
+      'pipeline_tag': 'text-generation',
+      'author': 'unsloth',
+      'search': 'Example',
+      'gated': 'false',
+      'sort': 'downloads',
+      'direction': '-1',
+      'limit': '30',
+      'offset': '30',
+      'expand[]': [
+        'gguf',
+        'tags',
+        'author',
+        'pipeline_tag',
+        'gated',
+        'private',
+        'downloads',
+        'likes',
+        'lastModified',
+        'sha',
+      ],
+    });
+    final manager = LocalModels(
+      jobFile: File('${directory.path}/job.json'),
+      providerFile: File('${directory.path}/provider.json'),
+      hardware: FixedHardware(host()),
+      hubClient: MockClient((request) async {
+        requested = request.url;
+        return http.Response(
+            jsonEncode([
+              {
+                'id': 'unsloth/Example-GGUF',
+                'author': 'unsloth',
+                'pipeline_tag': 'text-generation',
+                'tags': ['gguf', 'text-generation'],
+                'gguf': {'context_length': 8192, 'chat_template': 'tools'},
+                'downloads': 1234,
+                'gated': false,
+                'private': false,
+                'sha': 'abc'
+              },
+              {
+                'id': 'private/Model',
+                'pipeline_tag': 'text-generation',
+                'tags': ['gguf'],
+                'private': true
+              },
+              {
+                'id': 'owner/Embedding',
+                'pipeline_tag': 'feature-extraction',
+                'tags': ['gguf']
+              }
+            ]),
+            200,
+            headers: {'link': '<$next>; rel="next"'});
+      }),
+    );
+    addTearDown(manager.hub.close);
+
+    final page =
+        await manager.catalog({'source': 'unsloth', 'search': 'Example'});
+    expect(requested!.host, 'huggingface.co');
+    expect(requested!.queryParameters['author'], 'unsloth');
+    expect(requested!.queryParameters['filter'], 'gguf');
+    expect(requested!.queryParameters['pipeline_tag'], 'text-generation');
+    expect(page['items'], hasLength(1));
+    expect((page['items'] as List).single['id'], 'unsloth/Example-GGUF');
+
+    await manager.catalog({
+      'source': 'unsloth',
+      'search': 'Example',
+      'cursor': page['nextCursor'],
+    });
+    expect(requested!.queryParameters['offset'], '30');
+    await expectLater(
+        manager.catalog({
+          'source': 'huggingface',
+          'search': 'Example',
+          'cursor': page['nextCursor'],
+        }),
+        throwsFormatException);
+  });
+
+  test('known transformer metadata increases the KV allowance and warns', () {
     final cache = modelKvCacheBytes({
       'general.architecture': 'llama',
       'llama.block_count': 60,
@@ -65,11 +233,13 @@ void main() {
         context: 8192,
         execution: 'auto',
         cacheBytes: cache);
-    expect(result['allowed'], false);
+    expect(result['allowed'], true);
+    expect(result['requiresCaution'], true);
     expect(modelKvCacheBytes({}, 4096), isNull);
   });
 
-  test('RAM checks preserve headroom and never add shared Intel GPU RAM', () {
+  test('RAM checks warn on current pressure and never add shared Intel GPU RAM',
+      () {
     final intel = {
       'vendor': 'Intel',
       'memoryType': 'shared',
@@ -80,7 +250,8 @@ void main() {
         fileBytes: 4 * gibibyte,
         context: 8192,
         execution: 'auto');
-    expect(result['allowed'], false);
+    expect(result['allowed'], true);
+    expect(result['requiresCaution'], true);
     expect((result['warnings'] as List).join(), contains('counted only once'));
   });
   test(
@@ -146,6 +317,25 @@ void main() {
         context: 4096,
         execution: 'gpu');
     expect(result['allowed'], false);
+  });
+  test('a model larger than total RAM is blocked, while high overhead warns',
+      () {
+    final tooLarge = assessModel(
+        hardware: host(ram: 8, available: 7),
+        fileBytes: 9 * gibibyte,
+        context: 2048,
+        execution: 'cpu');
+    expect(tooLarge['allowed'], false);
+    expect((tooLarge['blocks'] as List).join(), contains('larger'));
+
+    final caution = assessModel(
+        hardware: host(ram: 16, available: 2),
+        fileBytes: 2 * gibibyte,
+        context: 4096,
+        execution: 'cpu');
+    expect(caution['allowed'], true);
+    expect(caution['requiresCaution'], true);
+    expect((caution['warnings'] as List).join(), contains('freeze'));
   });
   test('container RAM limits cap available host memory before admission',
       () async {
@@ -304,7 +494,8 @@ void main() {
           'repo': 'owner/chat-GGUF',
           'file': 'chat-Q4_K_M.gguf',
           'context': 4096,
-          'execution': execution
+          'execution': execution,
+          'storagePath': directory.path,
         });
     Future<void> finish() async {
       for (var i = 0; i < 100 && manager.busy; i++) {
@@ -344,12 +535,13 @@ void main() {
       expect(manager.job!['message'], contains('content hash'));
       expect(await manager.providerFile.exists(), false);
     });
-    test('memory is rechecked immediately before the download', () async {
+    test('low available RAM warns instead of blocking the requested download',
+        () async {
       final checked = await check();
       hardware.value = host(ram: 8, available: 1);
-      await expectLater(
-          manager.start(checked['checkId']), throwsFormatException);
-      expect(await manager.providerFile.exists(), false);
+      await manager.start(checked['checkId']);
+      await finish();
+      expect(manager.job!['status'], 'ready');
     });
     test('unsupported tool capability preserves the original connection',
         () async {
@@ -396,14 +588,13 @@ void main() {
       expect(
           await manager.providerFile.readAsString(), contains('newer-choice'));
     });
-    test('activation after reopening settings rechecks current available RAM',
+    test('activation does not reserve RAM for the OS or other processes',
         () async {
       await manager.start((await check())['checkId']);
       await finish();
       hardware.value = host(ram: 8, available: 1);
-      await expectLater(manager.activate(), throwsFormatException);
-      expect(await manager.providerFile.exists(), false);
-      expect(manager.job!['status'], 'ready');
+      await manager.activate();
+      expect(manager.job!['status'], 'configured');
     });
     test('provider write failure preserves the previous connection atomically',
         () async {
@@ -438,6 +629,16 @@ void main() {
       await manager.jobFile.writeAsString('{"status":"downloading"}');
       await manager.load();
       expect(manager.job!['status'], 'interrupted');
+    });
+    test('an interrupted operation can be cleared before a fresh check',
+        () async {
+      await manager.jobFile.writeAsString('{"status":"downloading"}');
+      await manager.load();
+
+      await manager.clearInterruptedJob();
+
+      expect(manager.job, isNull);
+      expect(await manager.jobFile.exists(), isFalse);
     });
     test('untrusted repositories and unchecked downloads are rejected',
         () async {

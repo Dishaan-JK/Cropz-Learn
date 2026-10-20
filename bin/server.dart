@@ -3,6 +3,7 @@ import 'package:lumi_learning_app/backend/app_settings_store.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:lumi_learning_app/data/app_settings.dart';
 import 'package:genkit/experimental.dart';
 import 'package:genkit/experimental_io.dart';
 import 'package:genkit/genkit.dart';
@@ -42,7 +43,9 @@ final providerSettingsFile =
     File('${dataDirectory.path}/provider-settings.json');
 final localModels = LocalModels(
     jobFile: File('${dataDirectory.path}/local-model-job.json'),
-    providerFile: providerSettingsFile);
+    providerFile: providerSettingsFile,
+    automaticSafetyEnabled: () =>
+        applicationSettings.settings.flag('autoUnloadModelOnLowRam'));
 final providerSettings = ProviderSettings.load(
   file: providerSettingsFile,
   environment: Platform.environment,
@@ -107,6 +110,29 @@ final ai = Genkit(
     'gemini' => gemini_provider.googleAI.gemini(configuredModel),
     _ => openai_provider.openAI.model(configuredModel),
   },
+);
+
+final agentCapabilityProbeTool = ai.defineTool<Map<String, String>, String>(
+  name: 'lumiAgentCapabilityCheck',
+  description:
+      'Confirms that Lumi can execute a model-requested tool call. Use only for the requested capability check.',
+  inputSchema: _stringInput('marker'),
+  outputSchema: SchemanticType.string(),
+  fn: (input, _) async => ToolResult<String>.response(
+      input['marker'] == 'lumi-agent-check'
+          ? 'LUMI_AGENT_TOOL_EXECUTED'
+          : 'LUMI_AGENT_TOOL_MARKER_INVALID'),
+);
+
+final agentCapabilityProbe = ai.defineAgent(
+  name: 'agentCapabilityProbe',
+  description: 'Runs a synthetic, side-effect-free agent tool-call check.',
+  system: 'You are checking Lumi agent capability. Call the '
+      'lumiAgentCapabilityCheck tool exactly once with marker '
+      'lumi-agent-check. After it returns, reply with a short confirmation. '
+      'Do not call any other tools.',
+  tools: [agentCapabilityProbeTool],
+  maxTurns: 2,
 );
 
 SchemanticType<Map<String, String>> _stringInput(String field) =>
@@ -874,7 +900,11 @@ final assistant = ai.defineAgent(
   system: 'You are Lumi, a thoughtful learning coach. Help the student learn '
       'from their workspace. Use searchWorkspaceNotes before answering questions '
       'about their notes, and readWorkspaceNote when you need full note details. '
-      'Coordinate Teacher, Tester, and Progress Reviewer through the shared Student learning record. '
+      'Route each request to the appropriate specialist without asking the Student to choose an agent: '
+      'delegate a request to learn a new topic, receive a lesson, or make flashcards to Teacher; '
+      'handle a revision or recap request as Coach; '
+      'delegate a test, quiz, assignment, grading, or marking request to Tester; '
+      'delegate a request to diagnose learning, identify strengths or weaknesses, or analyse progress to Progress Reviewer. '
       'Delegate progress reviews and spaced review planning to delegateStudentProgressReview. '
       'Delegate comparisons across several notes to delegateConnectionAnalysis. '
       'Use readUserPreferences when tailoring help, and apply those preferences. '
@@ -920,6 +950,7 @@ Future<void> main() async {
   await learningRecord.load();
   await academicArtifacts.load();
   await localModels.load();
+  localModels.startSafetyMonitor();
   await academicArtifacts
       .backfill(Directory('${dataDirectory.path}/agent-sessions/global'));
   await _archiveWorkspace();
@@ -1059,6 +1090,13 @@ Future<bool> _handleApiRequest(HttpRequest request) async {
         'files': files,
         'attachments': images
       });
+    } else if (request.uri.path == '/api/workspace/import' &&
+        request.method == 'POST') {
+      _json(
+          response,
+          HttpStatus.ok,
+          await _importWorkspace(
+              await _readJson(request, maximumBytes: 300 * 1024 * 1024)));
     } else if (request.uri.path == '/api/artifacts' &&
         request.method == 'GET') {
       _json(response, HttpStatus.ok, academicArtifacts.publicList());
@@ -1362,13 +1400,30 @@ Future<bool> _handleApiRequest(HttpRequest request) async {
         segments[0] == 'api' &&
         segments[1] == 'local-models') {
       final action = segments[2];
-      if (request.method == 'GET' && action == 'hardware') {
+      if (request.method == 'POST' && action == 'agent-capability-test') {
+        await _readJson(request);
+        _json(response, HttpStatus.ok, await _runAgentCapabilityTest());
+      } else if (request.method == 'GET' && action == 'hardware') {
         _json(response, HttpStatus.ok, await localModels.inventory());
       } else if (request.method == 'GET' && action == 'job') {
         _json(response, HttpStatus.ok, {'job': localModels.job});
+      } else if (request.method == 'GET' && action == 'status') {
+        _json(response, HttpStatus.ok, await localModels.status());
+      } else if (request.method == 'POST' && action == 'clear') {
+        await localModels.clearInterruptedJob();
+        _json(response, HttpStatus.ok, {'cleared': true});
+      } else if (request.method == 'POST' && action == 'catalog') {
+        _json(response, HttpStatus.ok,
+            await localModels.catalog(await _readJson(request)));
       } else if (request.method == 'POST' && action == 'inspect') {
         _json(response, HttpStatus.ok,
             await localModels.inspect((await _readJson(request))['repo']));
+      } else if (request.method == 'POST' && action == 'pick-folder') {
+        _json(
+            response,
+            HttpStatus.ok,
+            await localModels
+                .pickModelDirectory((await _readJson(request))['initialPath']));
       } else if (request.method == 'POST' && action == 'check') {
         _json(response, HttpStatus.ok,
             await localModels.check(await _readJson(request)));
@@ -1378,6 +1433,8 @@ Future<bool> _handleApiRequest(HttpRequest request) async {
       } else if (request.method == 'POST' && action == 'cancel') {
         await localModels.cancel();
         _json(response, HttpStatus.ok, {'job': localModels.job});
+      } else if (request.method == 'POST' && action == 'emergency-stop') {
+        _json(response, HttpStatus.ok, await localModels.emergencyStop());
       } else if (request.method == 'POST' && action == 'activate') {
         _json(response, HttpStatus.ok, await localModels.activate());
         restart = true;
@@ -1630,12 +1687,258 @@ Future<bool> _handleApiRequest(HttpRequest request) async {
   return restart;
 }
 
-Future<Map<String, dynamic>> _readJson(HttpRequest request) async {
-  final body = await utf8.decoder.bind(request).join();
-  if (body.length > 1024 * 1024) {
+Future<Map<String, dynamic>> _runAgentCapabilityTest() async {
+  try {
+    final turn = agentCapabilityProbe
+        .chat()
+        .sendStream(text: 'Run the synthetic Lumi agent capability check.');
+    await turn.stream.timeout(const Duration(seconds: 90)).drain<void>();
+    final response = await turn.response.timeout(const Duration(seconds: 90));
+    final toolExecuted = response.messages.any((message) => message.content
+        .whereType<ToolResponsePart>()
+        .any((part) =>
+            part.toolResponse.name == 'lumiAgentCapabilityCheck' &&
+            part.toolResponse.output == 'LUMI_AGENT_TOOL_EXECUTED'));
+    return {
+      'passed': toolExecuted,
+      'provider': providerSettings.displayName,
+      'model': configuredModel,
+      'toolCall': toolExecuted,
+      'message': toolExecuted
+          ? 'Lumi completed a Genkit agent turn and executed its test tool.'
+          : 'The model responded without executing the required tool call. Check tool-call support and context capacity for this model.',
+      if (!toolExecuted && response.text.trim().isNotEmpty)
+        'response': response.text
+            .trim()
+            .substring(0, math.min(240, response.text.trim().length)),
+    };
+  } on Object catch (error) {
+    final details = error
+        .toString()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(configuredApiKey, '[redacted]');
+    return {
+      'passed': false,
+      'provider': providerSettings.displayName,
+      'model': configuredModel,
+      'toolCall': false,
+      'message': details.length > 600 ? details.substring(0, 600) : details,
+    };
+  }
+}
+
+Future<Map<String, dynamic>> _readJson(HttpRequest request,
+    {int maximumBytes = 1024 * 1024}) async {
+  if (request.contentLength > maximumBytes) {
     throw const FormatException('Request too large');
   }
-  return jsonDecode(body) as Map<String, dynamic>;
+  final chunks = <int>[];
+  await for (final chunk in request) {
+    chunks.addAll(chunk);
+    if (chunks.length > maximumBytes) {
+      throw const FormatException('Request too large');
+    }
+  }
+  final decoded = jsonDecode(utf8.decode(chunks));
+  if (decoded is! Map) {
+    throw const FormatException('Request body must be a JSON object.');
+  }
+  try {
+    return Map<String, dynamic>.from(decoded);
+  } on TypeError {
+    throw const FormatException('Request body must use string keys.');
+  }
+}
+
+const _workspaceExportFiles = [
+  'workspace-notes.json',
+  'workspace-folders.json',
+  'workspace-canvases.json',
+  'academic-artifacts.json',
+  'user-profile.json',
+  'student-learning-record.json',
+  'application-settings.json',
+];
+
+Map<String, dynamic> _workspaceObject(Object? value, String message) {
+  if (value is! Map || value.keys.any((key) => key is! String)) {
+    throw FormatException(message);
+  }
+  return Map<String, dynamic>.from(value);
+}
+
+List<dynamic> _workspaceList(Object? value, String message) {
+  if (value is! List) throw FormatException(message);
+  return value;
+}
+
+void _validateWorkspaceExportFile(String name, Object? value) {
+  try {
+    switch (name) {
+      case 'workspace-notes.json':
+        for (final row in _workspaceList(value, 'Notes must be a JSON list.')) {
+          WorkspaceNote.fromJson(_workspaceObject(row, 'A note is invalid.'));
+        }
+      case 'workspace-folders.json':
+        for (final row
+            in _workspaceList(value, 'Folders must be a JSON list.')) {
+          WorkspaceFolder.fromJson(
+              _workspaceObject(row, 'A folder is invalid.'));
+        }
+      case 'workspace-canvases.json':
+        for (final row
+            in _workspaceList(value, 'Canvases must be a JSON list.')) {
+          WorkspaceCanvas.fromJson(
+              _workspaceObject(row, 'A canvas is invalid.'));
+        }
+      case 'academic-artifacts.json':
+        for (final row
+            in _workspaceList(value, 'Artifacts must be a JSON list.')) {
+          final artifact = _workspaceObject(row, 'An artifact is invalid.');
+          if (artifact['id'] is! String ||
+              artifact['kind'] is! String ||
+              artifact['title'] is! String ||
+              artifact['content'] is! String ||
+              artifact['source'] is! String ||
+              artifact['sourceId'] is! String ||
+              artifact['updatedAt'] is! String) {
+            throw const FormatException('An artifact is invalid.');
+          }
+        }
+      case 'user-profile.json':
+        final profile = _workspaceObject(value, 'Profile data is invalid.');
+        final preferences =
+            _workspaceList(profile['preferences'], 'Profile data is invalid.');
+        if (preferences.length > UserProfile.maxPreferences ||
+            preferences.any((item) =>
+                item is! String ||
+                item.length > UserProfile.maxPreferenceLength)) {
+          throw const FormatException('Profile data is invalid.');
+        }
+      case 'student-learning-record.json':
+        for (final row
+            in _workspaceList(value, 'Learning records must be a JSON list.')) {
+          _workspaceObject(row, 'A learning record is invalid.');
+        }
+      case 'application-settings.json':
+        AppSettings(
+            _workspaceObject(value, 'Application settings are invalid.'));
+    }
+  } on FormatException {
+    rethrow;
+  } on Object {
+    throw FormatException('The $name data is invalid.');
+  }
+}
+
+Future<Map<String, dynamic>> _importWorkspace(
+    Map<String, dynamic> export) async {
+  if (export['format'] != 'lumi-workspace' || export['version'] != 1) {
+    throw const FormatException('Choose a Lumi workspace export JSON file.');
+  }
+  final rawFiles =
+      _workspaceObject(export['files'], 'Workspace files are invalid.');
+  if (rawFiles.keys.any((name) => !_workspaceExportFiles.contains(name))) {
+    throw const FormatException(
+        'The export contains unsupported workspace files.');
+  }
+  final encodedFiles = <String, String>{};
+  for (final entry in rawFiles.entries) {
+    _validateWorkspaceExportFile(entry.key, entry.value);
+    encodedFiles[entry.key] = jsonEncode(entry.value);
+  }
+
+  final rawAttachments = _workspaceObject(
+      export['attachments'], 'Workspace attachments are invalid.');
+  final attachments = <String, List<int>>{};
+  var attachmentBytes = 0;
+  for (final entry in rawAttachments.entries) {
+    final match =
+        RegExp(r'^([a-f0-9]{32})\.(png|jpg|gif|webp)$').firstMatch(entry.key);
+    if (match == null || entry.value is! String) {
+      throw const FormatException('An exported attachment is invalid.');
+    }
+    late final List<int> bytes;
+    try {
+      bytes = base64Decode(entry.value as String);
+    } on FormatException {
+      throw const FormatException('An exported attachment could not be read.');
+    }
+    final type = _sniffImageType(bytes);
+    final geometry = type == null ? null : _imageGeometry(bytes, type.$2);
+    if (bytes.isEmpty ||
+        type == null ||
+        type.$2 != match.group(2) ||
+        geometry == null ||
+        geometry.$1 <= 0 ||
+        geometry.$2 <= 0 ||
+        geometry.$1 > 8192 ||
+        geometry.$2 > 8192 ||
+        geometry.$1 > (16 * 1024 * 1024) ~/ geometry.$2 ||
+        geometry.$3 != 1) {
+      throw const FormatException('An exported attachment is invalid.');
+    }
+    attachmentBytes += bytes.length;
+    if (attachmentBytes > 200 * 1024 * 1024) {
+      throw const FormatException(
+          'Workspace attachments exceed the 200 MiB limit.');
+    }
+    attachments[entry.key] = bytes;
+  }
+
+  final staging = Directory(
+      '${dataDirectory.path}${Platform.pathSeparator}.workspace-import-${DateTime.now().microsecondsSinceEpoch}');
+  try {
+    await staging.create();
+    for (final entry in encodedFiles.entries) {
+      await File('${staging.path}${Platform.pathSeparator}${entry.key}')
+          .writeAsString(entry.value, flush: true);
+    }
+    final stagedAttachments =
+        Directory('${staging.path}${Platform.pathSeparator}attachments');
+    await stagedAttachments.create();
+    for (final entry in attachments.entries) {
+      await File(
+              '${stagedAttachments.path}${Platform.pathSeparator}${entry.key}')
+          .writeAsBytes(entry.value, flush: true);
+    }
+
+    for (final name in _workspaceExportFiles) {
+      final destination =
+          File('${dataDirectory.path}${Platform.pathSeparator}$name');
+      if (encodedFiles.containsKey(name)) {
+        await File('${staging.path}${Platform.pathSeparator}$name')
+            .rename(destination.path);
+      } else if (await destination.exists()) {
+        await destination.delete();
+      }
+    }
+    if (await attachmentsDirectory.exists()) {
+      await attachmentsDirectory.delete(recursive: true);
+    }
+    await stagedAttachments.rename(attachmentsDirectory.path);
+
+    await Future.wait([
+      applicationSettings.reload(),
+      notes.reload(),
+      folders.reload(),
+      canvases.reload(),
+      userProfile.reload(),
+      learningRecord.reload(),
+      academicArtifacts.reload(),
+    ]);
+    await _archiveWorkspace();
+    return {
+      'imported': true,
+      'notes': notes.list().length,
+      'folders': folders.list().length,
+      'canvases': canvases.list().length,
+      'artifacts': academicArtifacts.list().length,
+      'attachments': attachments.length,
+    };
+  } finally {
+    if (await staging.exists()) await staging.delete(recursive: true);
+  }
 }
 
 (String, String)? _sniffImageType(List<int> bytes) {

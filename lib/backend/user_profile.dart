@@ -23,6 +23,11 @@ final class UserProfile {
           (json['preferences'] as List<dynamic>? ?? const []).cast<String>());
   }
 
+  Future<void> reload() async {
+    _preferences.clear();
+    await load();
+  }
+
   Future<bool> remember(String preference) async {
     final clean = preference.trim();
     if (clean.isEmpty || clean.length > maxPreferenceLength) {

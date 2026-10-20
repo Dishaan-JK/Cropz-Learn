@@ -127,6 +127,23 @@ void main() {
     expect(find.text('Reading comfort'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('low-RAM automatic model protection is opt-in', (tester) async {
+    final controller = await mount(tester);
+    await tester.tap(find.text('AI & models').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Automatically stop local model work on low RAM'),
+        findsOneWidget);
+    final toggle = find.widgetWithText(
+        SwitchListTile, 'Automatically stop local model work on low RAM');
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(controller.pending['autoUnloadModelOnLowRam'], true);
+    await tester.tap(find.text('Save changes'));
+    await tester.pumpAndSettle();
+    expect(controller.settings.flag('autoUnloadModelOnLowRam'), isTrue);
+  });
   for (final width in [390.0, 1440.0]) {
     testWidgets(
         'Canvas colour controls save, validate, preview and discard at $width',

@@ -68,6 +68,15 @@ async function freePort() {
     assert(!JSON.stringify(backup).includes(fixtureKey));
     assert(!Object.hasOwn(backup.files, 'provider-settings.json'));
     assert(!JSON.stringify(status).includes(fixtureKey));
+    await json('/api/notes', body('POST', {title:'Current workspace addition',content:'This must be replaced'}));
+    await json('/api/application-settings', body('PUT', {theme:'light', displayName:'Current name'}));
+    const imported = await json('/api/workspace/import', body('POST', backup));
+    assert.equal(imported.imported, true);
+    assert.equal((await json('/api/notes')).length, 1);
+    assert.equal((await json('/api/notes'))[0].title, 'Export fixture');
+    assert.equal((await json('/api/application-settings')).displayName, 'Ada');
+    assert.equal((await json('/api/application-settings')).theme, 'dark');
+    assert(fs.readFileSync(path.join(directory, 'provider-settings.json'),'utf8').includes(fixtureKey));
     await json('/api/profile', {method:'DELETE'});
     assert.equal((await json('/api/profile')).preferences.length, 0);
     assert.equal((await json('/api/notes')).length, 1);
@@ -76,6 +85,6 @@ async function freePort() {
     await stop(); await launch();
     const persisted = await json('/api/application-settings'); assert.equal(persisted.theme,'dark'); assert.equal(persisted.displayName,'Ada');
     assert.equal((await json('/api/notes')).length,1);
-    console.log(JSON.stringify({passed:true, checks:['Validated settings API and invalid patch rejection','Persistence across real backend restart','Live storage counts','Credential-free export includes full quiz marking keys and attached image bytes','Preference clearing preserves content and provider configuration','Untrusted origin blocked'], fixtureDirectory:directory},null,2));
+    console.log(JSON.stringify({passed:true, checks:['Validated settings API and invalid patch rejection','Workspace import replaces exported workspace data and preserves provider configuration','Persistence across real backend restart','Live storage counts','Credential-free export includes full quiz marking keys and attached image bytes','Preference clearing preserves content and provider configuration','Untrusted origin blocked'], fixtureDirectory:directory},null,2));
   } finally { await stop(); }
 })().catch(error => {console.error(error);process.exitCode = 1;});

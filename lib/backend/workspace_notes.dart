@@ -55,6 +55,11 @@ final class WorkspaceNotes {
     }
   }
 
+  Future<void> reload() async {
+    _notes.clear();
+    await load();
+  }
+
   List<WorkspaceNote> list() => _notes.values.toList()
     ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 

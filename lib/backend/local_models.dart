@@ -7,6 +7,19 @@ import 'package:http/http.dart' as http;
 import 'hardware_probe.dart';
 import 'provider_settings.dart';
 
+const _catalogExpansion = [
+  'gguf',
+  'tags',
+  'author',
+  'pipeline_tag',
+  'gated',
+  'private',
+  'downloads',
+  'likes',
+  'lastModified',
+  'sha',
+];
+
 class LocalModels {
   LocalModels(
       {required this.jobFile,
@@ -14,12 +27,16 @@ class LocalModels {
       HardwareProbe? hardware,
       http.Client? hubClient,
       http.Client Function()? runtimeClient,
+      Future<ProcessResult> Function(String, List<String>)? directoryPicker,
+      bool Function()? automaticSafetyEnabled,
       String? ollamaUrl})
       : hardware = hardware ??
             HardwareProbe(
                 modelDirectory: Platform.environment['LUMI_OLLAMA_MODELS_DIR']),
         hub = hubClient ?? http.Client(),
         clientFactory = runtimeClient ?? http.Client.new,
+        directoryPicker = directoryPicker ?? Process.run,
+        automaticSafetyEnabled = automaticSafetyEnabled ?? (() => false),
         ollama = Uri.parse(ollamaUrl ??
             Platform.environment['LUMI_OLLAMA_URL'] ??
             'http://127.0.0.1:11434') {
@@ -37,6 +54,8 @@ class LocalModels {
   final HardwareProbe hardware;
   final http.Client hub;
   final http.Client Function() clientFactory;
+  final Future<ProcessResult> Function(String, List<String>) directoryPicker;
+  final bool Function() automaticSafetyEnabled;
   final Uri ollama;
   final _checks = <String, Map<String, dynamic>>{};
   Map<String, dynamic>? _job;
@@ -44,7 +63,9 @@ class LocalModels {
   bool _cancelled = false,
       _starting = false,
       _workerRunning = false,
-      _activationLock = false;
+      _activationLock = false,
+      _emergencyStopping = false;
+  Timer? _safetyTimer;
   Future<void> _writes = Future.value();
   Map<String, dynamic>? get job {
     if (_job == null) return null;
@@ -54,6 +75,27 @@ class LocalModels {
   }
 
   bool get busy => _starting || _workerRunning || _activationLock;
+
+  /// Starts a backend-owned resource guard so the protection is active even
+  /// when the Settings page is closed. It only samples while Lumi has a local
+  /// model configured or is managing a model operation.
+  void startSafetyMonitor() {
+    _safetyTimer?.cancel();
+    _safetyTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      unawaited(_monitorSafety());
+    });
+  }
+
+  Future<void> _monitorSafety() async {
+    if (!automaticSafetyEnabled() || _emergencyStopping) return;
+    final configured = await _configuredOllamaModel();
+    if (configured == null && !busy) return;
+    try {
+      await status();
+    } on Object {
+      // A later sample can recover from a temporarily unavailable Ollama host.
+    }
+  }
 
   Future<void> load() async {
     if (!await jobFile.exists()) return;
@@ -77,6 +119,19 @@ class LocalModels {
           'The backend restarted. Check compatibility again and retry; Ollama may reuse partial downloads.';
       await _persist();
     }
+  }
+
+  /// Removes only the stale operation record after a backend restart. Any
+  /// partial Ollama blobs are deliberately kept so a later download can reuse
+  /// them.
+  Future<void> clearInterruptedJob() async {
+    if (_job?['status'] != 'interrupted') {
+      throw const FormatException(
+          'There is no interrupted model operation to clear.');
+    }
+    _job = null;
+    await _writes.catchError((Object _) {});
+    if (await jobFile.exists()) await jobFile.delete();
   }
 
   Future<void> _persist() {
@@ -107,6 +162,185 @@ class LocalModels {
           'Enter a public Hugging Face repository as owner/model.');
     }
     return value;
+  }
+
+  Future<void> _selectStorageDirectory(Object? value) async {
+    if (value is! String || value.trim().isEmpty) {
+      throw const FormatException(
+          'Choose the local folder where Ollama stores its models before downloading.');
+    }
+    await hardware.selectModelDirectory(value.trim());
+  }
+
+  /// Opens the host desktop's directory chooser. This is deliberately served
+  /// by the local backend because browsers cannot disclose an absolute local
+  /// filesystem path to a web app.
+  Future<Map<String, dynamic>> pickModelDirectory(Object? value) async {
+    if (!Platform.isLinux) {
+      throw const FormatException(
+          'Choose the Ollama model folder manually on this platform.');
+    }
+    final requested = value is String ? value.trim() : '';
+    final initial = requested.isNotEmpty && await Directory(requested).exists()
+        ? requested
+        : (hardware.modelDirectory != null &&
+                await Directory(hardware.modelDirectory!).exists()
+            ? hardware.modelDirectory!
+            : Directory.current.path);
+    ProcessResult result;
+    try {
+      result = await directoryPicker('kdialog', [
+        '--getexistingdirectory',
+        initial,
+        '--title',
+        'Choose Ollama model folder',
+      ]);
+    } on ProcessException {
+      throw const FormatException(
+          'Could not open the system folder chooser. Enter the model folder path instead.');
+    }
+    if (result.exitCode == 1) return {'cancelled': true};
+    if (result.exitCode != 0) {
+      throw const FormatException(
+          'The system folder chooser could not select a folder. Try again or enter the path.');
+    }
+    final selected = result.stdout.toString().trim();
+    if (selected.isEmpty) return {'cancelled': true};
+    await hardware.selectModelDirectory(selected);
+    return {'cancelled': false, 'path': selected};
+  }
+
+  Future<Map<String, dynamic>> catalog(Map<String, dynamic> request) async {
+    final source = request['source'] as String? ?? 'huggingface';
+    if (!const {'huggingface', 'unsloth'}.contains(source)) {
+      throw const FormatException('Choose a supported model catalog.');
+    }
+    final search = (request['search'] as String? ?? '').trim();
+    if (search.length > 100) {
+      throw const FormatException(
+          'Search text must be 100 characters or less.');
+    }
+    final requiredContext = request['requiredContext'] ?? 8192;
+    if (requiredContext is! int ||
+        !const {2048, 4096, 8192}.contains(requiredContext)) {
+      throw const FormatException('Choose a supported required context size.');
+    }
+    final rawCursor = request['cursor'] as String?;
+    late final Uri uri;
+    if (rawCursor == null || rawCursor.isEmpty) {
+      uri = Uri.https('huggingface.co', '/api/models', {
+        if (search.isNotEmpty) 'search': search,
+        'filter': 'gguf',
+        'pipeline_tag': 'text-generation',
+        if (source == 'unsloth') 'author': 'unsloth',
+        'gated': 'false',
+        'sort': 'downloads',
+        'direction': '-1',
+        'limit': '30',
+        'expand[]': _catalogExpansion,
+      });
+    } else {
+      if (rawCursor.length > 8192) {
+        throw const FormatException('Refresh the catalog and try again.');
+      }
+      try {
+        final cursor = jsonDecode(
+                utf8.decode(base64Url.decode(base64Url.normalize(rawCursor))))
+            as Map;
+        if (cursor['requiredContext'] != requiredContext) {
+          throw const FormatException('Refresh the catalog and try again.');
+        }
+        uri = Uri.parse(cursor['url'] as String);
+      } on FormatException {
+        throw const FormatException('Refresh the catalog and try again.');
+      } on TypeError {
+        throw const FormatException('Refresh the catalog and try again.');
+      }
+      if (uri.scheme != 'https' ||
+          uri.host != 'huggingface.co' ||
+          uri.path != '/api/models' ||
+          uri.queryParameters['filter'] != 'gguf' ||
+          uri.queryParameters['pipeline_tag'] != 'text-generation' ||
+          uri.queryParameters['search'] != (search.isEmpty ? null : search) ||
+          uri.queryParameters['author'] !=
+              (source == 'unsloth' ? 'unsloth' : null) ||
+          uri.queryParameters['gated'] != 'false' ||
+          uri.queryParameters['sort'] != 'downloads' ||
+          uri.queryParameters['direction'] != '-1' ||
+          uri.queryParameters['limit'] != '30' ||
+          uri.queryParametersAll['expand[]']?.length !=
+              _catalogExpansion.length ||
+          !_catalogExpansion.every((field) =>
+              uri.queryParametersAll['expand[]']?.contains(field) == true)) {
+        throw const FormatException('Refresh the catalog and try again.');
+      }
+    }
+
+    final response = await hub.get(uri).timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) {
+      throw FormatException(
+          'Hugging Face model search returned HTTP ${response.statusCode}. Wait briefly and retry.');
+    }
+    final items = <Map<String, dynamic>>[];
+    for (final raw in jsonDecode(response.body) as List? ?? const []) {
+      if (raw is! Map) continue;
+      final id = raw['id'] as String?;
+      if (id == null ||
+          !RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$')
+              .hasMatch(id) ||
+          raw['private'] == true ||
+          raw['gated'] == true) {
+        continue;
+      }
+      final tags = (raw['tags'] as List? ?? const []).whereType<String>();
+      if (!tags.contains('gguf') || raw['pipeline_tag'] != 'text-generation') {
+        continue;
+      }
+      final gguf = raw['gguf'];
+      if (gguf is! Map) continue;
+      final contextLength = gguf['context_length'];
+      final chatTemplate = gguf['chat_template'];
+      if (contextLength is! num ||
+          contextLength < requiredContext ||
+          chatTemplate is! String ||
+          !chatTemplate.toLowerCase().contains('tools')) {
+        continue;
+      }
+      items.add({
+        'id': id,
+        'author': raw['author'] ?? id.split('/').first,
+        'pipelineTag': raw['pipeline_tag'],
+        'contextLength': contextLength,
+        'toolCallingMetadata': true,
+        'downloads': raw['downloads'],
+        'likes': raw['likes'],
+        'lastModified': raw['lastModified'],
+        'revision': raw['sha'],
+      });
+    }
+    final link = response.headers['link'] ?? response.headers['Link'];
+    final next = link == null
+        ? null
+        : RegExp(r'<([^>]+)>\s*;\s*rel="?next"?', caseSensitive: false)
+            .firstMatch(link)?[1];
+    return {
+      'source': source,
+      'search': search,
+      'requiredContext': requiredContext,
+      'items': items,
+      'nextCursor': next == null
+          ? null
+          : base64Url
+              .encode(utf8.encode(jsonEncode({
+                'url': next,
+                'requiredContext': requiredContext,
+              })))
+              .replaceAll('=', ''),
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      'note': source == 'unsloth'
+          ? 'Official Unsloth Hugging Face results. Only entries with tool-enabled GGUF chat templates and at least $requiredContext context tokens are shown.'
+          : 'Public Hugging Face results. Only entries with tool-enabled GGUF chat templates and at least $requiredContext context tokens are shown.',
+    };
   }
 
   Future<Map<String, dynamic>> _json(http.Client client, String path,
@@ -161,6 +395,134 @@ class LocalModels {
       client.close();
     }
     return host;
+  }
+
+  Future<String?> _configuredOllamaModel() async {
+    if (!await providerFile.exists()) return null;
+    try {
+      final saved = jsonDecode(await providerFile.readAsString());
+      if (saved is! Map || saved['provider'] != 'ollama') return null;
+      final model = saved['model'];
+      return model is String && model.isNotEmpty ? model : null;
+    } on Object {
+      return null;
+    }
+  }
+
+  String? _criticalResourceReason(Map<String, dynamic> hardware) {
+    final memory = hardware['memory'] as Map? ?? const {};
+    final total = (memory['totalBytes'] as num?)?.toInt() ?? 0;
+    final available = (memory['availableBytes'] as num?)?.toInt() ?? 0;
+    final emergencyFloor = max(512 * 1024 * 1024, (total * .03).round());
+    if (total > 0 && available < emergencyFloor) {
+      return 'Available RAM fell below ${emergencyFloor ~/ (1024 * 1024)} MiB.';
+    }
+    return null;
+  }
+
+  bool _matchesModel(Object? candidate, String model) =>
+      candidate == model || candidate == '$model:latest';
+
+  Future<void> _unloadModel(String model) async {
+    final client = clientFactory();
+    try {
+      await _json(client, '/api/generate',
+          body: {'model': model, 'keep_alive': 0},
+          timeout: const Duration(seconds: 15));
+    } on Object {
+      // The model may already be gone, or Ollama may be unavailable.
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Stops only Lumi-owned model activity and asks Ollama to release Lumi's
+  /// configured model. Workspace JSON, attachments and provider settings are
+  /// never deleted or changed by this safety path.
+  Future<Map<String, dynamic>> emergencyStop({String? reason}) async {
+    if (_emergencyStopping) {
+      return {'stopped': false, 'message': 'A safety stop is already running.'};
+    }
+    _emergencyStopping = true;
+    try {
+      _cancelled = true;
+      _workerClient?.close();
+      final models = <String>{};
+      final configured = await _configuredOllamaModel();
+      if (configured != null) models.add(configured);
+      if (_job?['modelName'] is String) {
+        models.add(_job!['modelName'] as String);
+      }
+      if (_job != null) {
+        final wasWorking = _starting || _workerRunning;
+        await _update({
+          if (wasWorking) 'status': 'cancelled',
+          'message': 'Safety stop: ${reason ?? 'model work was stopped.'}',
+          'lastSafetyStop': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+      for (final model in models) {
+        await _unloadModel(model);
+      }
+      return {
+        'stopped': true,
+        'unloadedModels': models.toList(),
+        'message':
+            'Lumi model work was stopped and its model was unloaded from RAM. Workspace data was preserved.',
+      };
+    } finally {
+      _emergencyStopping = false;
+    }
+  }
+
+  /// Reports whether the configured Lumi model is resident, sleeping, or
+  /// unavailable. It also enforces the emergency resource guard.
+  Future<Map<String, dynamic>> status() async {
+    var hardware = await inventory();
+    final configuredModel = await _configuredOllamaModel();
+    final trackedModel = _job?['modelName'] as String?;
+    final model = configuredModel ?? trackedModel;
+    final reason = _criticalResourceReason(hardware);
+    Map<String, dynamic>? safety;
+    if (automaticSafetyEnabled() && reason != null && (model != null || busy)) {
+      safety = await emergencyStop(reason: reason);
+      hardware = await inventory();
+    }
+    final ollama = hardware['ollama'] as Map? ?? const {};
+    final available = ollama['available'] == true;
+    final models = (ollama['runningModels'] as List? ?? const []);
+    final resident = model != null &&
+        models
+            .whereType<Map>()
+            .any((item) => _matchesModel(item['name'], model));
+    final state = model == null
+        ? 'not-configured'
+        : !available
+            ? 'error'
+            : safety?['stopped'] == true
+                ? 'sleeping'
+                : resident
+                    ? 'active'
+                    : 'sleeping';
+    final message = switch (state) {
+      'active' => 'Connected and loaded in RAM.',
+      'sleeping' => safety?['message']?.toString() ??
+          'Connected, but not currently loaded in RAM.',
+      'error' => ollama['message']?.toString() ??
+          'Ollama is unavailable, so the agent cannot connect.',
+      _ => 'No Lumi local model is configured.',
+    };
+    return {
+      'connection': {
+        'state': state,
+        'model': model,
+        'message': message,
+        'automaticSafetyEnabled': automaticSafetyEnabled(),
+        if (safety != null) 'safety': safety,
+      },
+      'hardware': hardware,
+      'job': job,
+    };
   }
 
   Future<Map<String, dynamic>> inspect(Object? repository) async {
@@ -224,6 +586,7 @@ class LocalModels {
   }
 
   Future<Map<String, dynamic>> check(Map<String, dynamic> input) async {
+    await _selectStorageDirectory(input['storagePath']);
     final repo = validateRepo(input['repo']);
     final catalog = await inspect(repo);
     final file = (catalog['files'] as List)
@@ -270,6 +633,7 @@ class LocalModels {
       'sha256': file['sha256'],
       'context': context,
       'execution': execution,
+      'storagePath': input['storagePath'],
       'hardware': host,
       'assessment': assessment,
       'checkedAt': DateTime.now().toUtc().toIso8601String()
@@ -300,7 +664,7 @@ class LocalModels {
     _starting = true;
     _cancelled = false;
     try {
-      // Recheck current memory, disk and remote file size at the admission boundary.
+      // Recheck current RAM, disk and remote file size at the admission boundary.
       final fresh = await check(previous);
       if ((fresh['assessment'] as Map)['allowed'] != true ||
           fresh['revision'] != previous['revision'] ||
@@ -556,11 +920,6 @@ class LocalModels {
         'note':
             'Basic tool-call smoke test only. Samples include other system activity; Ollama allocation is not a full process RAM measurement.'
       };
-      if (minAvailable <
-          ((_job!['assessment'] as Map)['osReserveBytes'] as int)) {
-        throw const FormatException(
-            'The loaded model left too little operating-system memory headroom. It was not activated.');
-      }
       completed = {
         'status': 'ready',
         'runtime': runtime,
@@ -628,17 +987,11 @@ class LocalModels {
       }
       final current = await hardware.inspect();
       final memory = current['memory'] as Map? ?? {};
-      final required = max(
-          (_job!['assessment'] as Map)['estimatedRamBytes'] as int,
-          ((_job!['runtime'] as Map?)?['modelAllocatedBytes'] as num?)
-                  ?.toInt() ??
-              0);
-      final reserve = max(
-          2 * gibibyte, (((memory['totalBytes'] as num?) ?? 0) * .15).ceil());
       if (current['supported'] != true ||
-          ((memory['availableBytes'] as num?) ?? 0) < required + reserve) {
+          (_job!['bytes'] as int) >
+              ((memory['totalBytes'] as num?)?.toInt() ?? 0)) {
         throw const FormatException(
-            'Available RAM changed before activation. Free memory or choose a smaller model; the current agent connection was preserved.');
+            'This model is larger than the total RAM currently available to Lumi. The current agent connection was preserved.');
       }
       // Record intent first. Restart recovery checks the actual atomic provider file.
       await _update({
@@ -681,6 +1034,7 @@ class LocalModels {
   }
 
   void close() {
+    _safetyTimer?.cancel();
     _cancelled = true;
     _workerClient?.close();
     hub.close();

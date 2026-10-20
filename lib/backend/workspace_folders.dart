@@ -32,6 +32,11 @@ final class WorkspaceFolders {
     }
   }
 
+  Future<void> reload() async {
+    _folders.clear();
+    await load();
+  }
+
   List<WorkspaceFolder> list() => _folders.values.toList()
     ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   WorkspaceFolder? get(String id) => _folders[id];

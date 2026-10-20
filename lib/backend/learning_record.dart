@@ -18,6 +18,11 @@ final class LearningRecord {
     }
   }
 
+  Future<void> reload() async {
+    _events.clear();
+    await load();
+  }
+
   List<Map<String, Object?>> get events =>
       _events.map((event) => Map<String, Object?>.unmodifiable(event)).toList();
 

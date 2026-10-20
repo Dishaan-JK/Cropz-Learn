@@ -36,6 +36,7 @@ void main() {
           'execution': 'GPU offload confirmed',
           'toolCallVerified': true,
           'modelAllocatedBytes': 2e9,
+          'allocationOverheadBytes': .5e9,
           'gpuAllocatedBytes': 1e9,
           'peakSystemCpuPercent': 20,
           'peakSystemGpuPercent': null,
@@ -63,6 +64,22 @@ void main() {
                   {'name': 'chat-Q4_K_M.gguf', 'bytes': 1e9}
                 ]
               },
+            'pick-folder' => {
+                'cancelled': false,
+                'path': '/models/from-picker'
+              },
+            'catalog' => {
+                'source': 'huggingface',
+                'items': [
+                  {
+                    'id': 'owner/chat',
+                    'author': 'owner',
+                    'pipelineTag': 'text-generation',
+                    'downloads': 42
+                  }
+                ],
+                'nextCursor': null
+              },
             'check' => {
                 'checkId': 'c1',
                 'hardware': host,
@@ -75,7 +92,8 @@ void main() {
                   'estimatedRamBytes': 4e9,
                   'runtimeOverheadBytes': 1e9,
                   'cacheAllowanceBytes': 2e9,
-                  'osReserveBytes': 4e9,
+                  'requiresCaution': false,
+                  'currentAvailableRamBytes': 24e9,
                   'availableRamAfterLoadBytes': 20e9,
                   'expectedCpuLoad': 'Conditional',
                   'expectedGpuLoad': 'Requires runtime verification'
@@ -116,11 +134,34 @@ void main() {
                   api: api, onActivated: () => callback = true),
             ))));
         await tester.pumpAndSettle();
-        expect(find.text('Intel Core'), findsOneWidget);
-        await tester.enterText(find.byType(TextField), 'owner/chat');
-        await tester.ensureVisible(find.text('Inspect repository'));
-        await tester.tap(find.text('Inspect repository'));
+        await tester.tap(find.text('Browse popular models'));
         await tester.pumpAndSettle();
+        expect(find.text('owner/chat'), findsOneWidget);
+        await tester.tap(find.text('Select'));
+        await tester.pumpAndSettle();
+        expect(find.text('Selected model: owner/chat'), findsOneWidget);
+        await tester.ensureVisible(find.text('Check compatibility'));
+        await tester.tap(find.text('Check compatibility'));
+        await tester.pumpAndSettle();
+        expect(
+            find.text(
+                'Choose the existing Ollama model folder before checking this download.'),
+            findsOneWidget);
+        await tester.tap(find.text('Choose folder in File Manager'));
+        await tester.pumpAndSettle();
+        expect(
+            tester
+                .widget<TextField>(find.byWidgetPredicate((widget) =>
+                    widget is TextField &&
+                    widget.decoration?.labelText == 'Ollama model folder'))
+                .controller!
+                .text,
+            '/models/from-picker');
+        await tester.enterText(
+            find.byWidgetPredicate((widget) =>
+                widget is TextField &&
+                widget.decoration?.labelText == 'Ollama model folder'),
+            '/models');
         await tester.ensureVisible(find.text('Check compatibility'));
         await tester.tap(find.text('Check compatibility'));
         await tester.pumpAndSettle();
@@ -136,9 +177,16 @@ void main() {
           await tester.pumpAndSettle();
           expect(activated, true);
           expect(callback, true);
-          expect(find.text('Active agent model'), findsOneWidget);
-          expect(find.text('GPU offload confirmed · Agent tool call verified'),
+          expect(
+              find.text(
+                  'Beta testing: Local model support is still being tested. Tool calling, performance, and results can vary by model and hardware.'),
               findsOneWidget);
+          expect(find.text('Agent connection: Active'), findsOneWidget);
+          expect(find.text('lumi-hf-test'), findsNothing);
+          expect(find.text('Model size: 0.93 GiB'), findsOneWidget);
+          expect(find.text('RAM overhead: 0.47 GiB'), findsOneWidget);
+          expect(
+              find.text('Stop Lumi model work and unload RAM'), findsOneWidget);
         } else {
           expect(find.text('Download blocked'), findsOneWidget);
           expect(started, false);

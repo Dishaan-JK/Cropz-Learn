@@ -31,7 +31,7 @@ const settingsSections =
     title: 'AI & models',
     subtitle: 'Choose the intelligence behind your learning.',
     icon: LucideIcons.sparkles,
-    search: 'provider model ollama api key connection'
+    search: 'provider model ollama api key connection ram memory safety unload'
   ),
   (
     title: 'Learning & coach',
@@ -55,7 +55,8 @@ const settingsSections =
     title: 'Privacy & data',
     subtitle: 'Understand and control what Lumi remembers.',
     icon: LucideIcons.shieldCheck,
-    search: 'preferences delete forget reset personal data'
+    search:
+        'preferences delete forget reset personal data import restore backup json'
   ),
   (
     title: 'About & diagnostics',
@@ -222,6 +223,64 @@ class _SettingsPageState extends State<SettingsPage> {
             'lumi-workspace-${DateTime.now().toIso8601String().substring(0, 10)}.json',
             const JsonEncoder.withIndent('  ').convert(data));
       }, 'Workspace export downloaded. Store it somewhere private.');
+
+  Future<void> _importWorkspace() async {
+    PickedSettingsFile? selected;
+    try {
+      selected = await pickWorkspaceImportFile();
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() {
+          _notice = error.toString();
+          _failed = true;
+        });
+      }
+      return;
+    }
+    final file = selected;
+    if (file == null || !mounted) return;
+    late final Map<String, dynamic> workspace;
+    try {
+      final decoded = jsonDecode(file.contents);
+      if (decoded is! Map) {
+        throw const FormatException(
+            'Choose a Lumi workspace export JSON file.');
+      }
+      workspace = Map<String, dynamic>.from(decoded);
+    } on Object {
+      if (mounted) {
+        setState(() {
+          _notice = 'Choose a valid Lumi workspace export JSON file.';
+          _failed = true;
+        });
+      }
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+                    title: const Text('Replace this workspace?'),
+                    content: Text(
+                        'Import "${file.name}"? This replaces the exported workspace data: notes, folders, canvases, artifacts, learning records, remembered preferences, application settings and attached images. Any current data in those areas added after this export will be overwritten.\n\nConversation history and provider connection settings are not included in workspace exports, so they will not change.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('Cancel')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('Replace and import')),
+                    ])) ??
+        false;
+    if (!confirmed || !mounted) return;
+    await _run(() async {
+      await _api.importWorkspace(workspace);
+    }, 'Workspace imported. Reloading your workspace…');
+    if (!_failed && mounted) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      refreshAfterWorkspaceImport();
+    }
+  }
+
   Future<bool> _confirm(String title, String body) async =>
       await showDialog<bool>(
           context: context,
@@ -462,7 +521,18 @@ class _SettingsPageState extends State<SettingsPage> {
                   'Remove theme and page transition animations.'),
             ]),
           ],
-        2 => [const AiConnectionSettings()],
+        2 => [
+            _card(
+                'Local model safety',
+                'Choose how Lumi responds when this computer is critically low on RAM.',
+                [
+                  _toggle(
+                      'autoUnloadModelOnLowRam',
+                      'Automatically stop local model work on low RAM',
+                      'When enabled, Lumi cancels its own model work and unloads its model from RAM below the critical headroom threshold. Workspace data, settings, and downloaded weights are preserved.'),
+                ]),
+            const AiConnectionSettings(),
+          ],
         3 => [
             _card(
                 'Your learning defaults',
@@ -595,6 +665,12 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 16),
               _action(
                   'Export my workspace data', LucideIcons.download, _export),
+              const SizedBox(height: 10),
+              _action('Import workspace export JSON', LucideIcons.upload,
+                  _busy ? null : _importWorkspace),
+              const SizedBox(height: 10),
+              const Text(
+                  'Import replaces the workspace data contained in the selected export after you confirm. It does not import or change chat sessions, provider connections, or credentials.'),
             ]),
             _card(
                 'Reset application preferences',

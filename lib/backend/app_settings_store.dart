@@ -20,6 +20,11 @@ class AppSettingsStore {
     }
   }
 
+  Future<void> reload() async {
+    _settings = AppSettings();
+    await load();
+  }
+
   Future<void> save(Map<String, dynamic> patch) {
     AppSettings.validate(patch);
     final operation = _queue.then((_) async {

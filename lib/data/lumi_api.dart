@@ -170,11 +170,17 @@ class LumiApi {
     if (!const {
       'hardware',
       'job',
+      'status',
+      'clear',
+      'catalog',
       'inspect',
+      'pick-folder',
       'check',
       'download',
       'cancel',
-      'activate'
+      'emergency-stop',
+      'activate',
+      'agent-capability-test'
     }.contains(action)) {
       throw ArgumentError.value(action, 'action');
     }
@@ -230,6 +236,17 @@ class LumiApi {
 
   Future<Map<String, dynamic>> settingsResource(String path) async {
     final response = await _client.get(_base.resolve(path));
+    _check(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> importWorkspace(
+      Map<String, dynamic> workspace) async {
+    final response = await _client.post(
+      _base.resolve('/api/workspace/import'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(workspace),
+    );
     _check(response);
     return jsonDecode(response.body) as Map<String, dynamic>;
   }

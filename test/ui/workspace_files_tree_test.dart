@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:lumi_learning_app/data/lumi_api.dart';
 import 'package:lumi_learning_app/ui/lumi_theme.dart';
 import 'package:lumi_learning_app/ui/workspace_files_tree.dart';
@@ -96,6 +97,7 @@ void main() {
             body: Align(
                 alignment: Alignment.centerLeft,
                 child: WorkspaceSidebar(
+                    width: 264,
                     notes: notes,
                     canvases: canvases,
                     folders: folders,
@@ -114,11 +116,19 @@ void main() {
                     onToggleTheme: () {},
                     onSettings: () {},
                     workspaceView: 'artifacts',
-                    recentChats: const [],
+                    recentChats: const [
+                      (
+                        agentPath: '/api/assistant',
+                        sessionId: 'chat-1',
+                        title: 'Cell structure'
+                      )
+                    ],
                     onOpenChat: (_) {},
-                    onSelectAgent: (_) {},
                     onWorkspaceView: (_) {})))));
     expect(find.text('All notes'), findsNothing);
+    expect(find.text('LEARNING AGENTS'), findsNothing);
+    expect(find.text('LATEST CHATS'), findsOneWidget);
+    expect(find.text('Cell structure'), findsOneWidget);
     final canvas = find.byKey(const ValueKey('recent:canvas:c1'));
     final newestNote = find.byKey(const ValueKey('recent:note:n2'));
     final editedOldNote = find.byKey(const ValueKey('recent:note:n1'));
@@ -131,5 +141,67 @@ void main() {
     await tester.tap(newestNote);
     expect(opened, 'n2');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('top bar exposes enabled undo and redo actions', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var undoCount = 0;
+    var redoCount = 0;
+
+    await tester.pumpWidget(MaterialApp(
+      theme: LumiTheme.light(),
+      home: Scaffold(
+        body: WorkspaceTopBar(
+          note: null,
+          savedLabel: null,
+          agentOpen: false,
+          onToggleAgent: () {},
+          onDelete: () {},
+          onCreate: () {},
+          onSearch: (_) {},
+          onSettings: () {},
+          canUndo: false,
+          canRedo: false,
+          onUndo: () => undoCount++,
+          onRedo: () => redoCount++,
+        ),
+      ),
+    ));
+
+    final undo = find.byIcon(LucideIcons.undo2);
+    final redo = find.byIcon(LucideIcons.redo2);
+    final undoButton =
+        find.ancestor(of: undo, matching: find.byType(IconButton));
+    final redoButton =
+        find.ancestor(of: redo, matching: find.byType(IconButton));
+    expect(tester.widget<IconButton>(undoButton).onPressed, isNull);
+    expect(tester.widget<IconButton>(redoButton).onPressed, isNull);
+
+    await tester.pumpWidget(MaterialApp(
+      theme: LumiTheme.light(),
+      home: Scaffold(
+        body: WorkspaceTopBar(
+          note: null,
+          savedLabel: null,
+          agentOpen: false,
+          onToggleAgent: () {},
+          onDelete: () {},
+          onCreate: () {},
+          onSearch: (_) {},
+          onSettings: () {},
+          canUndo: true,
+          canRedo: true,
+          onUndo: () => undoCount++,
+          onRedo: () => redoCount++,
+        ),
+      ),
+    ));
+    await tester.tap(undo);
+    await tester.tap(redo);
+    expect(undoCount, 1);
+    expect(redoCount, 1);
   });
 }

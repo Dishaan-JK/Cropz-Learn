@@ -113,6 +113,11 @@ final class WorkspaceCanvases {
     }
   }
 
+  Future<void> reload() async {
+    _canvases.clear();
+    await load();
+  }
+
   List<WorkspaceCanvas> list() => _canvases.values.toList()
     ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 

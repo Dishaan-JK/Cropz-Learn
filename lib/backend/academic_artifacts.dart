@@ -20,6 +20,11 @@ final class AcademicArtifacts {
     }
   }
 
+  Future<void> reload() async {
+    _items.clear();
+    await load();
+  }
+
   List<Map<String, Object?>> list() => _items.values
       .map((item) => Map<String, Object?>.unmodifiable(item))
       .toList()

@@ -35,6 +35,31 @@ void main() {
       expect(find.text('FOLDERS'), findsOneWidget);
     });
 
+    testWidgets('wide workspace splitters resize the sidebar and Coach pane',
+        (tester) async {
+      setViewport(tester, const Size(1440, 1000));
+      await tester.pumpWidget(const LumiWebApp());
+      await tester.pump();
+
+      final sidebar = find.byKey(const ValueKey('workspace-sidebar'));
+      final sidebarResizer = find.byKey(const ValueKey('sidebar-pane-resizer'));
+      expect(sidebarResizer, findsOneWidget);
+      final initialSidebarWidth = tester.getSize(sidebar).width;
+      await tester.drag(sidebarResizer, const Offset(80, 0));
+      await tester.pump();
+      expect(tester.getSize(sidebar).width, greaterThan(initialSidebarWidth));
+
+      await tester.tap(find.byTooltip('Open Lumi Coach'));
+      await tester.pump();
+      final coachPane = find.byKey(const ValueKey('coach-pane'));
+      final agentResizer = find.byKey(const ValueKey('agent-pane-resizer'));
+      expect(agentResizer, findsOneWidget);
+      final initialCoachWidth = tester.getSize(coachPane).width;
+      await tester.drag(agentResizer, const Offset(-80, 0));
+      await tester.pump();
+      expect(tester.getSize(coachPane).width, greaterThan(initialCoachWidth));
+    });
+
     testWidgets('shows the compact navigation rail at medium width',
         (tester) async {
       setViewport(tester, const Size(1024, 768));

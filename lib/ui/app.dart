@@ -174,6 +174,33 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
   int _settingsInitialSection = 0;
   List<({String agentPath, String sessionId, String title})> _recentChats = [];
   static const _recentChatsKey = 'lumi.chat.recent';
+  static const _workspaceStateKey = 'lumi.workspace.session';
+  static const _defaultSidebarWidth = 264.0;
+  static const _defaultAgentWidth = 360.0;
+  static const _minimumSidebarWidth = 220.0;
+  static const _maximumSidebarWidth = 420.0;
+  static const _minimumAgentWidth = 300.0;
+  static const _maximumAgentWidth = 560.0;
+  static const _minimumWorkspaceWidth = 520.0;
+  static const _paneDividerWidth = 12.0;
+  final List<_WorkspaceHistoryEntry> _undo = [];
+  final List<_WorkspaceHistoryEntry> _redo = [];
+  String? _restoredSelectedNoteId;
+  bool _historyBusy = false;
+  bool _hasRestoredWorkspaceSession = false;
+  double _sidebarWidth = _defaultSidebarWidth;
+  double _agentWidth = _defaultAgentWidth;
+
+  bool get _canUndo => !_historyBusy && _undo.isNotEmpty;
+  bool get _canRedo => !_historyBusy && _redo.isNotEmpty;
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(() {
+      fn();
+      _persistWorkspaceState();
+    });
+  }
 
   @override
   void dispose() {
@@ -184,9 +211,72 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
   @override
   void initState() {
     super.initState();
-    _workspaceView = _settingsStartPage();
+    _hasRestoredWorkspaceSession = _restoreWorkspaceState();
+    if (!_hasRestoredWorkspaceSession) {
+      _workspaceView = _settingsStartPage();
+    }
     _readRecentChats();
     _load();
+  }
+
+  bool _restoreWorkspaceState() {
+    try {
+      final raw = readAppearanceValue(_workspaceStateKey);
+      if (raw == null) return false;
+      final saved = jsonDecode(raw);
+      if (saved is! Map) return false;
+      const views = {
+        'home',
+        'artifacts',
+        'canvas',
+        'graph',
+        'notes',
+        'settings'
+      };
+      final view = saved['view'];
+      if (view is String && views.contains(view)) _workspaceView = view;
+      _selectedFolderId = saved['folderId'] as String?;
+      _selectedCanvasId = saved['canvasId'] as String?;
+      _restoredSelectedNoteId = saved['noteId'] as String?;
+      _agentOpen = saved['coachOpen'] == true;
+      final sidebarWidth = saved['sidebarWidth'];
+      if (sidebarWidth is num) {
+        _sidebarWidth = sidebarWidth
+            .toDouble()
+            .clamp(_minimumSidebarWidth, _maximumSidebarWidth)
+            .toDouble();
+      }
+      final agentWidth = saved['agentWidth'];
+      if (agentWidth is num) {
+        _agentWidth = agentWidth
+            .toDouble()
+            .clamp(_minimumAgentWidth, _maximumAgentWidth)
+            .toDouble();
+      }
+      return true;
+    } on Object {
+      // A stale browser entry must never prevent the local workspace loading.
+      return false;
+    }
+  }
+
+  void _persistWorkspaceState() {
+    try {
+      writeAppearanceValue(
+          _workspaceStateKey,
+          jsonEncode({
+            'view': _workspaceView,
+            'folderId': _selectedFolderId,
+            'canvasId': _selectedCanvasId,
+            'noteId': _selected?.id ?? _restoredSelectedNoteId,
+            'coachOpen': _agentOpen,
+            'sidebarWidth': _sidebarWidth,
+            'agentWidth': _agentWidth,
+          }));
+    } on Object {
+      // Durable workspace content remains on the local backend if browser
+      // storage is unavailable.
+    }
   }
 
   String _settingsStartPage() {
@@ -206,7 +296,7 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
     super.didChangeDependencies();
     final controller = AppSettingsScope.maybeOf(context);
     if (!_appliedStartPage && controller != null && controller.loaded) {
-      if (_workspaceView == 'artifacts') {
+      if (!_hasRestoredWorkspaceSession && _workspaceView == 'artifacts') {
         _workspaceView = controller.settings.text('startPage');
       }
       _appliedStartPage = true;
@@ -283,7 +373,7 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
       final notes = snapshot.notes;
       final folders = snapshot.folders;
       final canvases = snapshot.canvases;
-      final selectedId = _selected?.id;
+      final selectedId = _selected?.id ?? _restoredSelectedNoteId;
       if (!mounted || revision != _loadRevision) return;
       setState(() {
         _notes = notes;
@@ -304,6 +394,7 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
         }
         _selected = notes.where((note) => note.id == selectedId).firstOrNull ??
             (notes.isEmpty ? null : notes.first);
+        _restoredSelectedNoteId = null;
         _loading = false;
         _error = null;
       });
@@ -428,6 +519,14 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
               .map((item) => item.id == updated.id ? updated : item)
               .toList();
         });
+        if (updated.name != folder.name) {
+          _recordHistory(_WorkspaceHistoryEntry(
+            label: 'folder rename',
+            coalesceKey: 'folder:${folder.id}',
+            undo: () => _restoreFolder(folder),
+            redo: () => _restoreFolder(updated),
+          ));
+        }
       }
     } catch (_) {
       _showError('Could not rename folder.');
@@ -473,6 +572,8 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
   }
 
   Future<bool> _save(Note original, String title, String content) async {
+    final before =
+        _notes.where((note) => note.id == original.id).firstOrNull ?? original;
     try {
       final result = await _repository.saveNote(original, title, content);
       if (mounted && result.isLatest) {
@@ -484,6 +585,14 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
           if (_selected?.id == result.note.id) _selected = result.note;
           _savedLabel = 'Saved locally';
         });
+        if (!_sameNoteContent(before, result.note)) {
+          _recordHistory(_WorkspaceHistoryEntry(
+            label: 'note edit',
+            coalesceKey: 'note:${result.note.id}',
+            undo: () => _restoreNote(before),
+            redo: () => _restoreNote(result.note),
+          ));
+        }
       }
       return true;
     } on WorkspaceWriteException catch (error) {
@@ -504,6 +613,8 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
     LearningCanvas canvas,
     Map<String, CanvasPosition> positions,
   ) async {
+    final before =
+        _canvases.where((item) => item.id == canvas.id).firstOrNull ?? canvas;
     try {
       final result = await _repository.saveCanvasLayout(canvas, positions);
       if (!mounted || !result.isLatest) return;
@@ -513,6 +624,14 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
             .toList();
         _savedLabel = 'Canvas saved';
       });
+      if (!_sameCanvasPositions(before.positions, result.canvas.positions)) {
+        _recordHistory(_WorkspaceHistoryEntry(
+          label: 'canvas layout',
+          coalesceKey: 'canvas:${result.canvas.id}',
+          undo: () => _restoreCanvasLayout(before),
+          redo: () => _restoreCanvasLayout(result.canvas),
+        ));
+      }
     } on WorkspaceWriteException catch (error) {
       if (mounted && error.isLatest) {
         try {
@@ -646,6 +765,14 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
             .toList();
         if (_selected?.id == updated.id) _selected = updated;
       });
+      if (!_sameNoteContent(note, updated)) {
+        _recordHistory(_WorkspaceHistoryEntry(
+          label: 'note move',
+          coalesceKey: 'note:${updated.id}',
+          undo: () => _restoreNote(note),
+          redo: () => _restoreNote(updated),
+        ));
+      }
     } on WorkspaceWriteException catch (error) {
       if (error.isLatest) _showError('Could not move this note.');
     } catch (_) {
@@ -687,6 +814,111 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
     await _save(source, source.title, content);
   }
 
+  bool _sameNoteContent(Note left, Note right) =>
+      left.id == right.id &&
+      left.title == right.title &&
+      left.content == right.content &&
+      left.folderId == right.folderId;
+
+  bool _sameCanvasPositions(
+    Map<String, CanvasPosition> left,
+    Map<String, CanvasPosition> right,
+  ) =>
+      left.length == right.length &&
+      left.entries.every((entry) {
+        final other = right[entry.key];
+        return other != null &&
+            other.x == entry.value.x &&
+            other.y == entry.value.y;
+      });
+
+  Future<void> _restoreNote(Note note) async {
+    final result = await _repository.updateNote(note);
+    if (!result.isLatest) {
+      throw const WorkspaceWriteException(false);
+    }
+    if (!mounted) return;
+    setState(() {
+      _notes = _notes
+          .map((item) => item.id == result.note.id ? result.note : item)
+          .toList();
+      if (_selected?.id == result.note.id) _selected = result.note;
+      _savedLabel = 'Saved locally';
+    });
+  }
+
+  Future<void> _restoreFolder(Folder folder) async {
+    final updated = await _repository.renameFolder(folder, folder.name);
+    if (!mounted) return;
+    setState(() {
+      _folders = _folders
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList();
+      _savedLabel = 'Saved locally';
+    });
+  }
+
+  Future<void> _restoreCanvasLayout(LearningCanvas canvas) async {
+    final result = await _repository.saveCanvasLayout(canvas, canvas.positions);
+    if (!result.isLatest) {
+      throw const WorkspaceWriteException(false);
+    }
+    if (!mounted) return;
+    setState(() {
+      _canvases = _canvases
+          .map((item) => item.id == result.canvas.id ? result.canvas : item)
+          .toList();
+      _savedLabel = 'Canvas saved';
+    });
+  }
+
+  void _recordHistory(_WorkspaceHistoryEntry entry) {
+    if (_historyBusy || !mounted) return;
+    setState(() {
+      if (entry.coalesceKey != null &&
+          _undo.isNotEmpty &&
+          _undo.last.coalesceKey == entry.coalesceKey) {
+        _undo[_undo.length - 1] = _undo.last.withRedo(entry.redo);
+      } else {
+        _undo.add(entry);
+        if (_undo.length > 40) _undo.removeAt(0);
+      }
+      _redo.clear();
+    });
+  }
+
+  Future<void> _undoLastChange() => _applyHistory(undo: true);
+
+  Future<void> _redoLastChange() => _applyHistory(undo: false);
+
+  Future<void> _applyHistory({required bool undo}) async {
+    final source = undo ? _undo : _redo;
+    final target = undo ? _redo : _undo;
+    if (_historyBusy || source.isEmpty) return;
+    final entry = source.last;
+    setState(() => _historyBusy = true);
+    try {
+      if (undo) {
+        await entry.undo();
+      } else {
+        await entry.redo();
+      }
+      if (!mounted) return;
+      setState(() {
+        source.removeLast();
+        target.add(entry);
+        _savedLabel = undo ? 'Undid ${entry.label}' : 'Redid ${entry.label}';
+      });
+    } on Object {
+      if (mounted) {
+        _showError(
+            'Could not ${undo ? 'undo' : 'redo'} the last saved change.');
+      }
+    } finally {
+      if (mounted) setState(() => _historyBusy = false);
+    }
+  }
+
   void _showError(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
@@ -696,6 +928,42 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
         _settingsInitialSection = 2;
         _searchMode = false;
         _agentOpen = false;
+      });
+
+  double _boundedSidebarWidth(double candidate, double viewportWidth,
+      {required bool agentBeside}) {
+    final reservedAgentWidth = agentBeside ? _agentWidth : 0.0;
+    final availableMaximum = viewportWidth -
+        reservedAgentWidth -
+        _minimumWorkspaceWidth -
+        _paneDividerWidth * (agentBeside ? 2 : 1);
+    final maximum = availableMaximum
+        .clamp(_minimumSidebarWidth, _maximumSidebarWidth)
+        .toDouble();
+    return candidate.clamp(_minimumSidebarWidth, maximum).toDouble();
+  }
+
+  double _boundedAgentWidth(double candidate, double viewportWidth) {
+    final availableMaximum = viewportWidth -
+        _sidebarWidth -
+        _minimumWorkspaceWidth -
+        _paneDividerWidth * 2;
+    final maximum = availableMaximum
+        .clamp(_minimumAgentWidth, _maximumAgentWidth)
+        .toDouble();
+    return candidate.clamp(_minimumAgentWidth, maximum).toDouble();
+  }
+
+  void _resizeSidebar(double delta, double viewportWidth,
+          {required bool agentBeside}) =>
+      setState(() {
+        _sidebarWidth = _boundedSidebarWidth(
+            _sidebarWidth + delta, viewportWidth,
+            agentBeside: agentBeside);
+      });
+
+  void _resizeAgent(double delta, double viewportWidth) => setState(() {
+        _agentWidth = _boundedAgentWidth(_agentWidth + delta, viewportWidth);
       });
 
   @override
@@ -711,6 +979,8 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
     }
 
     Widget sidebar() => WorkspaceSidebar(
+          key: showSidebar ? const ValueKey('workspace-sidebar') : null,
+          width: showSidebar ? _sidebarWidth : _defaultSidebarWidth,
           notes: _notes,
           canvases: _canvases,
           selectedCanvasId:
@@ -766,14 +1036,6 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
             closeCompactDrawer();
           }),
           recentChats: _recentChats,
-          onSelectAgent: (path) {
-            writeAppearanceValue('lumi.chat.active-agent', path);
-            setState(() {
-              _agentOpen = true;
-              _chatOpenRevision++;
-            });
-            closeCompactDrawer();
-          },
           onOpenChat: _openRecentChat,
         );
     return Scaffold(
@@ -785,6 +1047,13 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
             Row(
               children: [
                 if (showSidebar) sidebar(),
+                if (showSidebar)
+                  _PaneResizer(
+                    key: const ValueKey('sidebar-pane-resizer'),
+                    label: 'Resize sidebar and workspace',
+                    onDelta: (delta) => _resizeSidebar(delta, width,
+                        agentBeside: showAgentBeside),
+                  ),
                 if (showRail)
                   _WorkspaceRail(
                     view: _workspaceView,
@@ -816,6 +1085,10 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
                         onDelete: _deleteSelected,
                         onCreate: _createNote,
                         onSearch: _search,
+                        canUndo: _canUndo,
+                        canRedo: _canRedo,
+                        onUndo: () => unawaited(_undoLastChange()),
+                        onRedo: () => unawaited(_redoLastChange()),
                         onSettings: () => setState(() {
                           _workspaceView = 'settings';
                           _settingsInitialSection = 0;
@@ -949,14 +1222,24 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
                   ),
                 ),
                 if (showAgentBeside)
-                  CoachPanel(
-                      key: ValueKey(_chatOpenRevision),
-                      note: _selected,
-                      onWorkspaceChanged: _load,
-                      onChatSaved: _saveRecentChat,
-                      onChatDeleted: _removeRecentChat,
-                      onSwitchApi: _openAiSettings,
-                      onClose: () => setState(() => _agentOpen = false)),
+                  _PaneResizer(
+                    key: const ValueKey('agent-pane-resizer'),
+                    label: 'Resize workspace and Coach panel',
+                    onDelta: (delta) => _resizeAgent(-delta, width),
+                  ),
+                if (showAgentBeside)
+                  SizedBox(
+                    key: const ValueKey('coach-pane'),
+                    width: _agentWidth,
+                    child: CoachPanel(
+                        key: ValueKey(_chatOpenRevision),
+                        note: _selected,
+                        onWorkspaceChanged: _load,
+                        onChatSaved: _saveRecentChat,
+                        onChatDeleted: _removeRecentChat,
+                        onSwitchApi: _openAiSettings,
+                        onClose: () => setState(() => _agentOpen = false)),
+                  ),
               ],
             ),
             if (showAgentOverlay)
@@ -980,6 +1263,38 @@ class _LumiWorkspaceState extends State<LumiWorkspace> {
       ),
     );
   }
+}
+
+class _PaneResizer extends StatelessWidget {
+  const _PaneResizer({
+    required this.label,
+    required this.onDelta,
+    super.key,
+  });
+
+  final String label;
+  final ValueChanged<double> onDelta;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        child: Semantics(
+          label: label,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragUpdate: (details) => onDelta(details.delta.dx),
+            child: SizedBox(
+              width: _LumiWorkspaceState._paneDividerWidth,
+              child: Center(
+                child: Container(
+                  width: 1,
+                  color: Theme.of(context).dividerColor,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class _WorkspaceRail extends StatelessWidget {
@@ -1066,6 +1381,28 @@ class _RailItem extends StatelessWidget {
             icon: Icon(icon),
           ),
         ),
+      );
+}
+
+class _WorkspaceHistoryEntry {
+  const _WorkspaceHistoryEntry({
+    required this.label,
+    required this.coalesceKey,
+    required this.undo,
+    required this.redo,
+  });
+
+  final String label;
+  final String? coalesceKey;
+  final Future<void> Function() undo;
+  final Future<void> Function() redo;
+
+  _WorkspaceHistoryEntry withRedo(Future<void> Function() nextRedo) =>
+      _WorkspaceHistoryEntry(
+        label: label,
+        coalesceKey: coalesceKey,
+        undo: undo,
+        redo: nextRedo,
       );
 }
 

@@ -24,6 +24,7 @@ class AppSettings {
     'questionCount': 5,
     'coachContext': true,
     'rememberPreferences': true,
+    'autoUnloadModelOnLowRam': false,
     'editorMode': 'edit',
     'editorWidth': 'focused',
     'autosaveDelay': 700,

@@ -13,8 +13,21 @@ class HardwareProbe {
       HardwareCommand? command})
       : command = command ?? ((name, args) => Process.run(name, args));
   final String procRoot, sysRoot;
-  final String? modelDirectory;
+  String? modelDirectory;
   final HardwareCommand command;
+
+  /// The user chooses the existing Ollama model directory before download so
+  /// Lumi can validate the filesystem that will receive the checkpoint.
+  Future<void> selectModelDirectory(String path) async {
+    if (!path.startsWith('/') || path.length > 4096) {
+      throw const FormatException('Choose an absolute local folder path.');
+    }
+    if (!await Directory(path).exists()) {
+      throw const FormatException(
+          'That model folder does not exist on this computer.');
+    }
+    modelDirectory = path;
+  }
 
   Future<String> _read(String path) async {
     try {
@@ -330,7 +343,8 @@ int? modelKvCacheBytes(Map info, int context) {
       .ceil();
 }
 
-/// Conservative RAM-first admission: shared graphics memory is never added to RAM.
+/// RAM-first admission. Current available RAM is the only live headroom input;
+/// the UI warns rather than reserving capacity for the OS or other processes.
 Map<String, dynamic> assessModel(
     {required Map<String, dynamic> hardware,
     required int fileBytes,
@@ -353,7 +367,6 @@ Map<String, dynamic> assessModel(
   // allocation is measured after loading at this exact context length.
   final cache =
       math.max(cacheBytes ?? 0, (2 * gibibyte * context / 4096).ceil());
-  final reserve = math.max(2 * gibibyte, (total * .15).ceil());
   final required = fileBytes + overhead + cache;
   final disk = (hardware['storage'] as Map?)?['availableBytes'] as num?;
   final blocks = <String>[];
@@ -363,9 +376,18 @@ Map<String, dynamic> assessModel(
   if (hardware['supported'] != true) {
     blocks.add('Reliable host RAM detection is unavailable.');
   }
-  if (required + reserve > available) {
+  if (fileBytes > total) {
     blocks.add(
-        'Insufficient available RAM after retaining operating-system headroom. Choose a smaller model or context.');
+        'This GGUF file is larger than this computer’s total RAM and cannot be downloaded for Lumi.');
+  }
+  final caution = overhead > gibibyte || required > available;
+  if (overhead > gibibyte) {
+    warnings.add(
+        'This model needs more than 1 GiB of runtime overhead. Running it may freeze the system.');
+  }
+  if (required > available) {
+    warnings.add(
+        'The estimated loaded model size exceeds RAM currently available. Downloading is allowed, but loading it may freeze the system.');
   }
   if (includeDownload && disk == null) {
     warnings.add(
@@ -403,7 +425,7 @@ Map<String, dynamic> assessModel(
     warnings.add(
         'The CPU is already busy. Inference may compete with current work.');
   }
-  final ratio = available == 0 ? 1.0 : (required + reserve) / available;
+  final ratio = available == 0 ? 1.0 : required / available;
   final cpuPath = execution == 'cpu' || gpus.isEmpty;
   return {
     'allowed': blocks.isEmpty,
@@ -413,7 +435,8 @@ Map<String, dynamic> assessModel(
     'estimatedRamBytes': required,
     'runtimeOverheadBytes': overhead,
     'cacheAllowanceBytes': cache,
-    'osReserveBytes': reserve,
+    'requiresCaution': caution,
+    'currentAvailableRamBytes': available,
     'availableRamAfterLoadBytes': math.max(0, available - required),
     'difficulty': ratio > .8
         ? 'High memory pressure'
