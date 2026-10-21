@@ -23,11 +23,13 @@ export function NoteEditor({ note, notes, folders, preferences, onSaveStatus, on
   const [content, setContent] = useState(note.content)
   const [folderId, setFolderId] = useState(note.folderId ?? '')
   const [previewOverride, setPreviewOverride] = useState<{ noteId: string; value: boolean } | null>(null)
+  const [showSavedToast, setShowSavedToast] = useState(false)
   const isPreview = previewOverride?.noteId === note.id ? previewOverride.value : preferences.editorMode === 'preview'
   const [isDirty, setDirty] = useState(false)
   const editorDelay = Number(preferences.autosaveDelay ?? 700)
   const imageInput = useRef<HTMLInputElement>(null)
   const bodyInput = useRef<HTMLTextAreaElement>(null)
+  const savedToastTimer = useRef<number | null>(null)
   const { mutate: saveNote, isError, isPending: isSaving } = useMutation({
     mutationFn: ({ nextTitle, nextContent, nextFolderId }: { nextTitle: string; nextContent: string; nextFolderId: string }) => updateNote(note, nextTitle, nextContent, nextFolderId || undefined),
     onMutate: () => onSaveStatus('saving'),
@@ -42,6 +44,9 @@ export function NoteEditor({ note, notes, folders, preferences, onSaveStatus, on
       setFolderId(savedNote.folderId ?? '')
       setDirty(false)
       onSaveStatus('saved')
+      setShowSavedToast(true)
+      if (savedToastTimer.current !== null) window.clearTimeout(savedToastTimer.current)
+      savedToastTimer.current = window.setTimeout(() => setShowSavedToast(false), 2400)
     },
     onError: () => onSaveStatus('error'),
   })
@@ -59,6 +64,10 @@ export function NoteEditor({ note, notes, folders, preferences, onSaveStatus, on
     return () => window.clearTimeout(timeout)
   }, [content, editorDelay, folderId, isDirty, isSaving, saveNote, title])
 
+  useEffect(() => () => {
+    if (savedToastTimer.current !== null) window.clearTimeout(savedToastTimer.current)
+  }, [])
+
   function updateDraft(update: () => void) {
     update()
     setDirty(true)
@@ -72,6 +81,7 @@ export function NoteEditor({ note, notes, folders, preferences, onSaveStatus, on
 
   return (
     <article className={`editor-surface ${preferences.editorWidth === 'wide' ? 'is-wide' : ''}`}>
+      {showSavedToast && <div className="note-saved-toast" role="status" aria-live="polite"><span aria-hidden="true" />Saved</div>}
       <div className="editor-toolbar">
         <p className="editor-kicker">{folderId ? folders.find((folder) => folder.id === folderId)?.name ?? 'Folder note' : 'Unfiled note'}</p>
         <div className="editor-actions">

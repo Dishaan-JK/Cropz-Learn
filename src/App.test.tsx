@@ -8,6 +8,7 @@ const fetchMock = vi.fn()
 let canvasFixtures: Array<Record<string, unknown>> = []
 let startPageFixture = 'notes'
 let coachReplyCount = 0
+let coachReplyFixture: string | null = null
 
 function renderApp() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -20,6 +21,7 @@ describe('Lumi React workspace shell', () => {
     canvasFixtures = []
     startPageFixture = 'notes'
     coachReplyCount = 0
+    coachReplyFixture = null
     window.localStorage.clear()
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockImplementation((request: URL, init?: RequestInit) => {
@@ -61,10 +63,11 @@ describe('Lumi React workspace shell', () => {
       if (request.pathname === '/api/settings/test') return Promise.resolve(new Response(JSON.stringify({ connected: true, message: 'Connection verified.' })))
       if (request.pathname === '/api/settings') return Promise.resolve(new Response(JSON.stringify({ provider: 'Local Ollama', providerId: 'ollama', model: 'qwen2.5:3b', baseUrl: 'http://127.0.0.1:11434/v1', apiKeyConfigured: false, restartRequired: false })))
       if (['/api/assistant', '/api/agents/study', '/api/agents/connections', '/api/agents/tester', '/api/agents/reviewer'].includes(request.pathname) && init?.method === 'POST') {
-        const reply = `Ready ${++coachReplyCount}`
+        const replyIndex = ++coachReplyCount
+        const reply = coachReplyFixture ?? `Ready ${replyIndex}`
         const frames = [
           { message: { modelChunk: { content: [{ text: reply }] } } },
-          { result: { sessionId: `session-${coachReplyCount}` } },
+          { result: { sessionId: `session-${replyIndex}` } },
         ].map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
         return Promise.resolve(new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(frames)); controller.close() } }), { headers: { 'Content-Type': 'text/event-stream' } }))
       }
@@ -118,7 +121,7 @@ describe('Lumi React workspace shell', () => {
     const user = userEvent.setup()
     renderApp()
     expect(await screen.findByRole('heading', { name: 'Your learning, collected.' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Notes' }))
+    await user.click(screen.getByRole('button', { name: 'New note' }))
     expect(await screen.findByLabelText('Note title')).toBeInTheDocument()
   })
 
@@ -169,52 +172,31 @@ describe('Lumi React workspace shell', () => {
     expect(await screen.findByLabelText('Note title')).toHaveValue('Learning the senses')
   })
 
-  it('renders graph relationships and opens connected notes', async () => {
-    const user = userEvent.setup()
+  it('keeps the removed Graph view out of primary navigation', async () => {
     renderApp()
     await screen.findByLabelText('Note title')
-    await user.click(screen.getByRole('button', { name: 'Graph' }))
-    expect(await screen.findByRole('heading', { name: 'Graph' })).toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/api/graph' }), expect.anything()))
-    const connectedNote = document.querySelector('.graph-connections button')
-    expect(connectedNote).not.toBeNull()
-    await user.click(connectedNote!)
-    expect(await screen.findByLabelText('Note title')).toHaveValue('Attention')
+    expect(screen.queryByRole('button', { name: 'Graph' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Canvas' })).toBeInTheDocument()
   })
 
-  it('renames an existing canvas and attaches and detaches notes through the service', async () => {
+  it('attaches and detaches notes on an existing canvas through the service', async () => {
     canvasFixtures = [{ id: 'canvas-1', title: 'Biology', description: 'Cell studies', noteIds: ['note-1'], positions: {}, quizzes: [], updatedAt: '2026-10-19T00:00:00.000Z' }]
     const user = userEvent.setup()
     renderApp()
     await screen.findByLabelText('Note title')
     await user.click(screen.getByRole('button', { name: 'Canvas' }))
     expect(await screen.findByRole('heading', { name: 'Canvas' })).toBeInTheDocument()
+    await user.click(screen.getByText('Biology').closest('button')!)
     expect(within(await screen.findByLabelText('Biology board')).getByText('Learning the senses')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Add notes to canvas' }))
+    await user.click(screen.getByText('Attention').closest('button')!)
+    const canvasUpdateSent = (noteIds: string[], positions: Record<string, unknown>) => fetchMock.mock.calls.some(([request, init]) => request instanceof URL && request.pathname === '/api/canvases/canvas-1' && init?.method === 'PUT' && JSON.stringify(JSON.parse(String(init.body))) === JSON.stringify({ noteIds, positions, connections: [] }))
+    await waitFor(() => expect(canvasUpdateSent(['note-1', 'note-2'], { 'note-1': { x: 120, y: 130 }, 'note-2': { x: 510, y: 130 } })).toBe(true))
+    expect(within(screen.getByLabelText('Biology board')).getByText('Attention')).toBeInTheDocument()
 
-    await user.clear(screen.getByRole('textbox', { name: 'Canvas name' }))
-    await user.type(screen.getByRole('textbox', { name: 'Canvas name' }), 'Cell biology')
-    await user.click(screen.getByRole('button', { name: 'Save canvas details' }))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: '/api/canvases/canvas-1' }),
-      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ title: 'Cell biology', description: 'Cell studies' }) }),
-    ))
-    await waitFor(() => expect(canvasFixtures[0].title).toBe('Cell biology'))
-    expect(await screen.findByRole('tab', { name: 'Cell biology' })).toBeInTheDocument()
-
-    const linkedNotes = within(document.querySelector('.canvas-linked-notes')!)
-    await user.click(linkedNotes.getByRole('checkbox', { name: 'Attention' }))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: '/api/canvases/canvas-1' }),
-      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ noteIds: ['note-1', 'note-2'], positions: {} }) }),
-    ))
-    expect(within(screen.getByLabelText('Cell biology board')).getByText('Attention')).toBeInTheDocument()
-
-    await user.click(linkedNotes.getByRole('checkbox', { name: 'Learning the senses' }))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: '/api/canvases/canvas-1' }),
-      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ noteIds: ['note-2'], positions: {} }) }),
-    ))
-    await waitFor(() => expect(canvasFixtures[0].noteIds).toEqual(['note-2']))
+    await user.click(screen.getByRole('button', { name: 'Remove Attention from canvas' }))
+    await waitFor(() => expect(canvasUpdateSent(['note-1'], { 'note-1': { x: 120, y: 130 } })).toBe(true))
+    await waitFor(() => expect(canvasFixtures[0].noteIds).toEqual(['note-1']))
   })
 
   it('opens and closes the Coach drawer with automatic specialist routing', async () => {
@@ -259,6 +241,21 @@ describe('Lumi React workspace shell', () => {
     ))
     expect(fetchMock).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: '/api/agents/tester' }), expect.anything())
     expect(fetchMock).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: '/api/agents/reviewer' }), expect.anything())
+  })
+
+  it('renders formatted Coach replies as Markdown', async () => {
+    coachReplyFixture = 'To remember rules:\n\n* **Think** about slope.\n* Picture a hill.'
+    const user = userEvent.setup()
+    const { container } = renderApp()
+    await screen.findByLabelText('Note title')
+    await user.click(screen.getByRole('button', { name: 'Open Coach Agent' }))
+    await user.type(screen.getByLabelText('Message the Coach'), 'How can I remember slope rules?')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    const boldText = await screen.findByText('Think', { selector: 'strong' })
+    expect(boldText).toBeInTheDocument()
+    expect(screen.getByText('Picture a hill.')).toBeInTheDocument()
+    expect(container.textContent).not.toContain('**Think**')
   })
 
   it('creates the same seeded note as the existing Lumi client', async () => {

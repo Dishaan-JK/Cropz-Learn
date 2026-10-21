@@ -9,6 +9,7 @@
     "dev:full": "node scripts/dev-full.mjs",
     "test:e2e:chrome": "node scripts/e2e-chrome.mjs",
     "build": "tsc -b && vite build",
+    "bundle:single": "node scripts/build-single-executable.mjs",
     "lint": "oxlint src",
     "preview": "vite preview"
   },

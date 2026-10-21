@@ -15,6 +15,10 @@ not start a duplicate process. If needed, it starts the Dart service from the
 sibling Lumi project. Override that location with `LUMI_BACKEND_ROOT`, and use
 `LUMI_BACKEND_URL` when the backend listens on another local address.
 Set `LUMI_FRONTEND_PORT` when an existing development server already uses 5173.
+Vite now binds strictly to that configured port instead of silently moving to a
+different port that the backend may reject. The full-stack launcher checks the
+backend's exact origin allowlist before starting the UI and prints the required
+`LUMI_ALLOWED_ORIGINS` value when it does not match.
 When the launcher starts the backend, it also sets a strict exact
 `LUMI_ALLOWED_ORIGINS` list for that Vite port. Do not use a wildcard Origin
 allowlist: the local API handles exports, imports, and deletions. If connecting

@@ -51,6 +51,23 @@ npm run build
 npm run test:e2e:chrome
 ```
 
+## Single executable (Linux x86_64)
+
+With the sibling `Learning-App` Dart backend checkout and Rust installed, run:
+
+```bash
+npm run bundle:single
+```
+
+This builds `release/lumi-linux-x64`, a single Linux executable containing the
+production web UI and compiled Lumi backend. It starts the app on a loopback
+port and opens the default browser. Workspace data stays in
+`$XDG_DATA_HOME/lumi` (or `~/.local/share/lumi`); set `LUMI_DATA_DIR` to choose
+another location. Provider credentials remain in that local data directory.
+The executable can run without Node, Dart, or the source checkouts installed.
+Build it separately on each target OS and CPU architecture; this script emits
+Linux x86_64 only.
+
 ## Design reference
 
 The approved concept is the [Lumi React Workspace canvas](https://superdesign.dev/teams/a4c9d57a-42d9-4578-8e2e-a8209329992f/projects/f6b6afec-4846-449e-b392-21418bc6047b).

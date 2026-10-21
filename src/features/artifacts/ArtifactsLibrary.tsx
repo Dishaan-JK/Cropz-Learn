@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Search, X } from 'lucide-react'
 import { getArtifacts, lumiQueryKeys, submitArtifactQuiz, type LumiApplicationSettings, type LumiArtifact, type LumiQuizResult } from '../../lib/lumi-api'
@@ -18,10 +18,16 @@ function isQuiz(value: unknown): value is { type: 'quiz'; questions: QuizQuestio
   return isRecord(value) && value.type === 'quiz' && Array.isArray(value.questions) && value.questions.length > 0 && value.questions.every((question) => isRecord(question) && typeof question.prompt === 'string' && Array.isArray(question.options) && question.options.length > 0 && question.options.every((option) => typeof option === 'string'))
 }
 
+function usesFloatingPlayer(artifact: LumiArtifact) {
+  const kind = artifact.kind.toLowerCase().replace(/[^a-z]/g, '')
+  return kind.includes('quiz') || kind.includes('testpaper')
+}
+
 export function ArtifactsLibrary({ preferences }: { preferences: LumiApplicationSettings }) {
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState('All')
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null)
+  const closeSelectedArtifact = useCallback(() => setSelectedArtifactId(null), [])
   const artifacts = useQuery({ queryKey: lumiQueryKeys.artifacts, queryFn: getArtifacts })
   const normalizedQuery = query.trim().toLowerCase()
   const kinds = useMemo(() => ['All', ...new Set(artifacts.data?.map((item) => item.kind) ?? [])], [artifacts.data])
@@ -30,6 +36,7 @@ export function ArtifactsLibrary({ preferences }: { preferences: LumiApplication
     `${item.title} ${item.content} ${item.source}`.toLowerCase().includes(normalizedQuery)
   )).sort((a, b) => preferences.artifactSort === 'Oldest first' ? Date.parse(a.updatedAt) - Date.parse(b.updatedAt) : preferences.artifactSort === 'Title A–Z' ? a.title.localeCompare(b.title) : Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [artifacts.data, kind, normalizedQuery, preferences.artifactSort])
   const selectedArtifact = visibleArtifacts.find((item) => item.id === selectedArtifactId)
+  const selectedArtifactFloats = selectedArtifact ? usesFloatingPlayer(selectedArtifact) : false
 
   return (
     <section className="artifact-library" aria-labelledby="library-title">
@@ -43,7 +50,7 @@ export function ArtifactsLibrary({ preferences }: { preferences: LumiApplication
       {artifacts.isLoading ? <div className="artifact-loading" aria-live="polite"><span className="loading-orb" aria-hidden="true" /><p>Opening your library…</p></div> : artifacts.isError ? (
         <section className="artifact-empty"><h2>Your library could not be loaded.</h2><p>Check the local service, then try again.</p><button type="button" onClick={() => artifacts.refetch()}>Try again</button></section>
       ) : visibleArtifacts.length ? (
-        <div className="artifact-layout"><div className={`artifact-grid ${preferences.artifactLayout === 'list' ? 'is-list' : ''}`} aria-label={`${visibleArtifacts.length} saved artifacts`}>{visibleArtifacts.map((artifact) => <ArtifactCard artifact={artifact} key={artifact.id} selected={selectedArtifactId === artifact.id} onSelect={() => setSelectedArtifactId(artifact.id)} />)}</div>{selectedArtifact && <ArtifactDetail artifact={selectedArtifact} onClose={() => setSelectedArtifactId(null)} />}</div>
+        <div className={`artifact-layout ${selectedArtifact && !selectedArtifactFloats ? 'has-detail' : ''}`}><div className={`artifact-grid ${preferences.artifactLayout === 'list' ? 'is-list' : ''}`} aria-label={`${visibleArtifacts.length} saved artifacts`}>{visibleArtifacts.map((artifact) => <ArtifactCard artifact={artifact} key={artifact.id} selected={selectedArtifactId === artifact.id} onSelect={() => setSelectedArtifactId(artifact.id)} />)}</div>{selectedArtifact && <ArtifactDetail artifact={selectedArtifact} floating={selectedArtifactFloats} onClose={closeSelectedArtifact} />}</div>
       ) : <section className="artifact-empty"><h2>{normalizedQuery ? 'No artifacts match that search.' : 'Your library is ready.'}</h2><p>{normalizedQuery ? 'Try a different title, source, or phrase.' : 'Generated notes, lessons, quizzes, flashcards, and revision plans will appear here.'}</p></section>}
     </section>
   )
@@ -53,9 +60,18 @@ function ArtifactCard({ artifact, selected, onSelect }: { artifact: LumiArtifact
   return <button className={`artifact-card ${selected ? 'is-selected' : ''}`} type="button" onClick={onSelect} aria-pressed={selected}><span className="artifact-kind">{artifact.kind}</span><strong>{artifact.title}</strong><span className="artifact-summary">{artifact.content.trim() || 'Open this saved learning object.'}</span><small>{artifact.source || 'Lumi workspace'} · {new Date(artifact.updatedAt).toLocaleDateString()}</small></button>
 }
 
-function ArtifactDetail({ artifact, onClose }: { artifact: LumiArtifact; onClose: () => void }) {
+function ArtifactDetail({ artifact, floating, onClose }: { artifact: LumiArtifact; floating: boolean; onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!floating) return
+    closeButtonRef.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [floating, onClose])
   const learningObject = artifact.learningObject
-  return <aside className="artifact-detail" aria-label={`Artifact details: ${artifact.title}`}><button className="small-icon-button" type="button" aria-label="Close artifact details" onClick={onClose}><X aria-hidden="true" /></button><p className="eyebrow">{artifact.kind}</p><h2>{artifact.title}</h2><p className="artifact-source">Source: {artifact.source || 'Lumi workspace'}</p>{isFlashcards(learningObject) ? <FlashcardPlayer cards={learningObject.cards} /> : isQuiz(learningObject) ? <QuizPlayer artifactId={artifact.id} questions={learningObject.questions} /> : <div className="artifact-content">{artifact.content}</div>}</aside>
+  const detail = <aside className={`artifact-detail ${floating ? 'is-floating' : ''}`} aria-label={`Artifact details: ${artifact.title}`} role={floating ? 'dialog' : undefined} aria-modal={floating ? true : undefined}><button ref={closeButtonRef} className="small-icon-button" type="button" aria-label="Close artifact details" onClick={onClose}><X aria-hidden="true" /></button><p className="eyebrow">{artifact.kind}</p><h2>{artifact.title}</h2><p className="artifact-source">Source: {artifact.source || 'Lumi workspace'}</p>{isFlashcards(learningObject) ? <FlashcardPlayer cards={learningObject.cards} /> : isQuiz(learningObject) ? <QuizPlayer artifactId={artifact.id} questions={learningObject.questions} /> : <div className="artifact-content">{artifact.content}</div>}</aside>
+  return floating ? <div className="artifact-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>{detail}</div> : detail
 }
 
 function FlashcardPlayer({ cards }: { cards: Flashcard[] }) {

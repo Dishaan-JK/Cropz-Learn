@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Hand, Link2, Maximize, Minus, Plus, Search, X } from 'lucide-react'
+import { Hand, Link2, Minus, Plus, Search, X } from 'lucide-react'
 import { createCanvas, getCanvases, lumiQueryKeys, updateCanvas, type LumiCanvas, type LumiCanvasConnection, type LumiCanvasPosition, type LumiNote } from '../../lib/lumi-api'
 
 const WORLD_WIDTH = 3200
 const WORLD_HEIGHT = 2200
+const MAX_CANVAS_POSITION = 10_000
 const clampZoom = (value: number) => Math.min(2.25, Math.max(.4, value))
 const defaultPosition = (index: number): LumiCanvasPosition => ({ x: 120 + (index % 3) * 390, y: 130 + Math.floor(index / 3) * 270 })
 
-export function CanvasWorkspace({ notes, selectedCanvasId, onOpenCanvas, onBackToCanvases, onOpenNote }: { notes: LumiNote[]; selectedCanvasId: string | null; onOpenCanvas: (id: string) => void; onBackToCanvases: () => void; onOpenNote: (id: string) => void }) {
+export function CanvasWorkspace({ notes, selectedCanvasId, onOpenCanvas, onBackToCanvases, onOpenNote, onCreateNote }: { notes: LumiNote[]; selectedCanvasId: string | null; onOpenCanvas: (id: string) => void; onBackToCanvases: () => void; onOpenNote: (id: string) => void; onCreateNote: () => void }) {
   const client = useQueryClient()
   const canvases = useQuery({ queryKey: lumiQueryKeys.canvases, queryFn: getCanvases })
   const [title, setTitle] = useState('')
@@ -20,7 +21,7 @@ export function CanvasWorkspace({ notes, selectedCanvasId, onOpenCanvas, onBackT
   const filteredNotes = normalizedSearch ? notes.filter((note) => (note.title + ' ' + note.content).toLocaleLowerCase().includes(normalizedSearch)) : []
   if (selectedCanvasId) {
     return <section className="canvas-file-view" aria-label={`${selected?.title ?? 'Canvas'} workspace`}>
-      {canvases.isLoading ? <p className="canvas-loading">Loading canvas…</p> : canvases.isError ? <p className="canvas-loading" role="alert">Canvases are unavailable. Check the local service and retry.</p> : selected ? <CanvasBoard key={selected.id} canvas={selected} notes={notes} onOpenNote={onOpenNote} /> : <div className="canvas-loading"><p>This canvas could not be found.</p><button type="button" onClick={onBackToCanvases}>Back to canvases</button></div>}
+      {canvases.isLoading ? <p className="canvas-loading">Loading canvas…</p> : canvases.isError ? <p className="canvas-loading" role="alert">Canvases are unavailable. Check the local service and retry.</p> : selected ? <CanvasBoard key={selected.id} canvas={selected} notes={notes} onOpenNote={onOpenNote} onCreateNote={onCreateNote} /> : <div className="canvas-loading"><p>This canvas could not be found.</p><button type="button" onClick={onBackToCanvases}>Back to canvases</button></div>}
     </section>
   }
   return <section className="learning-view canvas-library-view">
@@ -43,7 +44,7 @@ export function CanvasWorkspace({ notes, selectedCanvasId, onOpenCanvas, onBackT
   </section>
 }
 
-function CanvasBoard({ canvas, notes, onOpenNote }: { canvas: LumiCanvas; notes: LumiNote[]; onOpenNote: (id: string) => void }) {
+function CanvasBoard({ canvas, notes, onOpenNote, onCreateNote }: { canvas: LumiCanvas; notes: LumiNote[]; onOpenNote: (id: string) => void; onCreateNote: () => void }) {
   const client = useQueryClient()
   const viewportRef = useRef<HTMLDivElement>(null)
   const moveRef = useRef<{ id: string; pointerX: number; pointerY: number; startX: number; startY: number } | null>(null)
@@ -57,8 +58,10 @@ function CanvasBoard({ canvas, notes, onOpenNote }: { canvas: LumiCanvas; notes:
   const [pan, setPan] = useState({ x: 40, y: 30 })
   const [zoom, setZoom] = useState(1)
   const [isPanning, setIsPanning] = useState(false)
+  const [panMode, setPanMode] = useState(false)
   const [connectMode, setConnectMode] = useState(false)
   const [connectFrom, setConnectFrom] = useState<string | null>(null)
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [addingNotes, setAddingNotes] = useState(false)
   const [search, setSearch] = useState('')
   const [palettePosition, setPalettePosition] = useState<{ x: number; y: number } | null>(null)
@@ -135,9 +138,11 @@ function CanvasBoard({ canvas, notes, onOpenNote }: { canvas: LumiCanvas; notes:
     const exists = connections.some((edge) => edge.sourceId === connectFrom && edge.targetId === id)
     if (!exists) persistGraph(noteIds, positions, [...connections, { sourceId: connectFrom, targetId: id }])
     setConnectFrom(null)
+    setConnectMode(false)
   }
 
   function startMove(event: ReactPointerEvent<HTMLElement>, id: string) {
+    if (panMode || connectMode) return
     if ((event.target as HTMLElement).closest('button')) return
     const point = positions[id] ?? defaultPosition(noteIds.indexOf(id))
     moveRef.current = { id, pointerX: event.clientX, pointerY: event.clientY, startX: point.x, startY: point.y }
@@ -147,7 +152,7 @@ function CanvasBoard({ canvas, notes, onOpenNote }: { canvas: LumiCanvas; notes:
   function moveNode(event: ReactPointerEvent<HTMLElement>, id: string) {
     const drag = moveRef.current
     if (!drag || drag.id !== id) return
-    const next = { ...positionsRef.current, [id]: { x: Math.max(0, drag.startX + (event.clientX - drag.pointerX) / zoom), y: Math.max(0, drag.startY + (event.clientY - drag.pointerY) / zoom) } }
+    const next = { ...positionsRef.current, [id]: { x: Math.min(MAX_CANVAS_POSITION, Math.max(0, drag.startX + (event.clientX - drag.pointerX) / zoom)), y: Math.min(MAX_CANVAS_POSITION, Math.max(0, drag.startY + (event.clientY - drag.pointerY) / zoom)) } }
     positionsRef.current = next
     setPositions(next)
   }
@@ -158,22 +163,8 @@ function CanvasBoard({ canvas, notes, onOpenNote }: { canvas: LumiCanvas; notes:
     update.mutate({ positions: positionsRef.current })
   }
 
-  function fitBoard() {
-    const host = viewportRef.current
-    if (!host) return
-    const nodes = attachedNotes.map((item) => item.position)
-    if (!nodes.length) { setPan({ x: 40, y: 30 }); setZoom(1); return }
-    const minX = Math.min(...nodes.map((point) => point.x))
-    const minY = Math.min(...nodes.map((point) => point.y))
-    const maxX = Math.max(...nodes.map((point) => point.x + 320))
-    const maxY = Math.max(...nodes.map((point) => point.y + 220))
-    const next = clampZoom(Math.min((host.clientWidth - 120) / (maxX - minX + 120), (host.clientHeight - 120) / (maxY - minY + 120), 1.25))
-    setZoom(next)
-    setPan({ x: 60 - minX * next, y: 60 - minY * next })
-  }
-
   return <div className="canvas-board-shell">
-    <div ref={viewportRef} className={`canvas-board ${isPanning ? 'is-panning' : ''}`} aria-label={`${canvas.title} board`} onPointerDown={(event) => { const target = event.target as HTMLElement; if (event.shiftKey && event.button === 0 && !target.closest('.canvas-note, .canvas-tool-palette, .canvas-add-popover')) { panRef.current = { pointerX: event.clientX, pointerY: event.clientY, startX: pan.x, startY: pan.y }; setIsPanning(true); event.preventDefault() } }}>
+    <div ref={viewportRef} className={`canvas-board ${panMode ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''}`} aria-label={`${canvas.title} board`} onPointerDown={(event) => { const target = event.target as HTMLElement; if ((panMode || event.shiftKey) && event.button === 0 && !target.closest('.canvas-tool-palette, .canvas-add-popover, .canvas-note-remove')) { panRef.current = { pointerX: event.clientX, pointerY: event.clientY, startX: pan.x, startY: pan.y }; setIsPanning(true); event.preventDefault() } }}>
       <div className="canvas-world" style={{ width: WORLD_WIDTH, height: WORLD_HEIGHT, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
         <svg className="canvas-edges" width={WORLD_WIDTH} height={WORLD_HEIGHT} aria-label="Note connections">
           <defs><marker id="canvas-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path className="canvas-arrow-head" d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
@@ -185,30 +176,27 @@ function CanvasBoard({ canvas, notes, onOpenNote }: { canvas: LumiCanvas; notes:
             return <path className="canvas-edge-path" key={`${edge.sourceId}:${edge.targetId}`} d={`M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`} markerEnd="url(#canvas-arrow)" />
           })}
         </svg>
-        {attachedNotes.map(({ id, note, position }) => <article className={`canvas-note ${connectFrom === id ? 'is-connect-source' : ''}`} key={id} style={{ left: position.x, top: position.y }} onPointerDown={(event) => startMove(event, id)} onPointerMove={(event) => moveNode(event, id)} onPointerUp={() => finishMove(id)}>
+        {attachedNotes.map(({ id, note, position }) => <article className={`canvas-note ${selectedNoteId === id ? 'is-selected' : ''} ${connectFrom === id ? 'is-connect-source' : ''}`} key={id} style={{ left: position.x, top: position.y }} onPointerDown={(event) => startMove(event, id)} onPointerMove={(event) => moveNode(event, id)} onPointerUp={() => finishMove(id)} onClick={(event) => { if ((event.target as HTMLElement).closest('button')) return; if (connectMode) connect(connectFrom ? 'target' : 'source', id); else setSelectedNoteId(id) }}>
           <button className="canvas-note-remove" type="button" aria-label={`Remove ${note?.title || 'note'} from canvas`} title="Remove from canvas" onClick={() => removeNote(id)}><X aria-hidden="true" /></button>
           <span className="canvas-note-label">Note</span>
-          <button className="canvas-note-title" type="button" onClick={() => onOpenNote(id)}>{note?.title || 'Untitled note'}</button>
+          <button className="canvas-note-title" type="button" onClick={() => connectMode ? connect(connectFrom ? 'target' : 'source', id) : panMode ? undefined : onOpenNote(id)}>{note?.title || 'Untitled note'}</button>
           <p>{(note?.content || 'No preview available.').replace(/[#*_`>]/g, '').slice(0, 170)}</p>
-          <button className={`canvas-node-port is-source ${connectFrom === id ? 'is-active' : ''}`} type="button" aria-label={`Start connection from ${note?.title || 'note'}`} title="Connection start" onClick={() => connect('source', id)} />
-          <button className="canvas-node-port is-target" type="button" aria-label={`Connect to ${note?.title || 'note'}`} title="Connection end" onClick={() => connect('target', id)} />
         </article>)}
       </div>
       {noteIds.length === 0 && <div className="canvas-empty-state"><span className="canvas-empty-orb"><Plus aria-hidden="true" /></span><strong>A clear space for your ideas</strong><span>Add notes from the floating panel, then connect related thoughts.</span></div>}
       <div className="canvas-tool-palette" style={palettePosition ? { left: palettePosition.x, top: palettePosition.y, right: 'auto' } : undefined} aria-label="Canvas controls">
         <div className="canvas-palette-grip" title="Drag to move the controls" onPointerDown={(event) => { paletteDragRef.current = { pointerX: event.clientX, pointerY: event.clientY, startX: palettePosition?.x ?? Math.max(16, (viewportRef.current?.clientWidth ?? 600) - 80), startY: palettePosition?.y ?? 18 }; event.preventDefault() }}><span /><span /><span /><span /><span /><span /></div>
         <button type="button" className={addingNotes ? 'is-active' : ''} aria-label="Add notes to canvas" title="Add notes" onClick={() => { setAddingNotes((value) => !value); setSearch('') }}><Plus aria-hidden="true" /></button>
-        <button type="button" className={connectMode ? 'is-active' : ''} aria-label={connectMode ? 'Exit connection mode' : 'Connect notes'} title={connectMode ? 'Exit connection mode' : 'Connect notes'} onClick={() => { setConnectMode((value) => !value); setConnectFrom(null) }}><Link2 aria-hidden="true" /></button>
+        <button type="button" className={connectMode ? 'is-active' : ''} aria-label={connectMode ? 'Exit connection mode' : 'Connect notes'} title={connectMode ? 'Exit connection mode' : 'Connect notes'} onClick={() => { if (connectMode) { setConnectMode(false); setConnectFrom(null) } else { setPanMode(false); setConnectMode(true); setConnectFrom(selectedNoteId) } }}><Link2 aria-hidden="true" /></button>
         <span className="canvas-palette-divider" />
         <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => setZoom((value) => clampZoom(value / 1.15))}><Minus aria-hidden="true" /></button>
         <span className="canvas-zoom-readout" aria-live="polite">{Math.round(zoom * 100)}%</span>
         <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => setZoom((value) => clampZoom(value * 1.15))}><Plus aria-hidden="true" /></button>
-        <button type="button" aria-label="Fit notes in view" title="Fit notes in view" onClick={fitBoard}><Maximize aria-hidden="true" /></button>
         <span className="canvas-palette-divider" />
-        <button type="button" className="canvas-pan-hint" aria-label="Pan with Shift and drag" title="Hold Shift and drag to pan"><Hand aria-hidden="true" /></button>
+        <button type="button" className={`canvas-pan-hint ${panMode ? 'is-active' : ''}`} aria-label={panMode ? 'Exit pan mode' : 'Enter pan mode'} title={panMode ? 'Exit pan mode' : 'Pan mode'} aria-pressed={panMode} onClick={() => { setConnectMode(false); setConnectFrom(null); setPanMode((value) => !value) }}><Hand aria-hidden="true" /></button>
       </div>
-      {addingNotes && <section className="canvas-add-popover" aria-label="Add notes to canvas"><header><div><strong>Add notes</strong><span>Choose notes to place on the board</span></div><button type="button" aria-label="Close note search" onClick={() => setAddingNotes(false)}><X aria-hidden="true" /></button></header><label className="canvas-add-search"><Search aria-hidden="true" /><input autoFocus type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your notes" /></label><div className="canvas-add-results">{availableNotes.length ? availableNotes.slice(0, 8).map((note) => <button type="button" key={note.id} onClick={() => addNote(note.id)}><span><strong>{note.title || 'Untitled note'}</strong><small>{note.content.replace(/[#*_`>]/g, '').slice(0, 70) || 'No preview'}</small></span><Plus aria-hidden="true" /></button>) : <p>{search ? 'No matching notes available.' : 'All your notes are already on this canvas.'}</p>}</div></section>}
-      <div className="canvas-board-hint"><span>{connectMode ? connectFrom ? 'Choose a note’s left connector to finish the link' : 'Choose a note’s right connector to start a link' : 'Shift + drag to pan  ·  Scroll to move  ·  Ctrl + scroll to zoom'}</span>{update.isPending ? <span>Saving…</span> : update.isError ? <span role="alert" title={update.error instanceof Error ? update.error.message : 'Unknown save error'}>Save failed: {update.error instanceof Error ? update.error.message : 'Please retry.'}</span> : null}</div>
+      {addingNotes && <section className="canvas-add-popover" aria-label="Add notes to canvas"><header><div><strong>Add notes</strong><span>Choose notes to place on the board</span></div><button type="button" aria-label="Close note search" onClick={() => setAddingNotes(false)}><X aria-hidden="true" /></button></header><button type="button" className="canvas-create-note" onClick={() => { setAddingNotes(false); onCreateNote() }}>Create a new note</button><label className="canvas-add-search"><Search aria-hidden="true" /><input autoFocus type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your notes" /></label><div className="canvas-add-results">{availableNotes.length ? availableNotes.slice(0, 8).map((note) => <button type="button" key={note.id} onClick={() => addNote(note.id)}><span><strong>{note.title || 'Untitled note'}</strong><small>{note.content.replace(/[#*_`>]/g, '').slice(0, 70) || 'No preview'}</small></span><Plus aria-hidden="true" /></button>) : <p>{search ? 'No matching notes available.' : 'All your notes are already on this canvas.'}</p>}</div></section>}
+      <div className="canvas-board-hint"><span>{connectMode ? connectFrom ? 'Click the note you want to connect to' : 'Click a note to start a connection' : panMode ? 'Pan mode · Drag the board to move around' : 'Drag notes to arrange them · Scroll to move · Ctrl + scroll to zoom'}</span>{update.isPending ? <span>Saving…</span> : update.isError ? <span role="alert" title={update.error instanceof Error ? update.error.message : 'Unknown save error'}>Save failed: {update.error instanceof Error ? update.error.message : 'Please retry.'}</span> : null}</div>
     </div>
   </div>
 }

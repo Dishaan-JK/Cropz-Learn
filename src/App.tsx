@@ -8,7 +8,7 @@ import {
   Folder,
   Home,
   Menu,
-  Network,
+  MessageSquare,
   PanelRightClose,
   Plus,
   Pencil,
@@ -24,9 +24,11 @@ import { NoteEditor } from './features/notes/NoteEditor'
 import { SearchDialog } from './features/search/SearchDialog'
 import { ArtifactsLibrary } from './features/artifacts/ArtifactsLibrary'
 import { SettingsWorkspace } from './features/settings/SettingsWorkspace'
-import { CoachPanel } from './features/coach/CoachPanel'
+import { CoachPanel, RECENT_CHATS_UPDATED_EVENT, readRecentChats, type RecentChat } from './features/coach/CoachPanel'
 import { HomeWorkspace } from './features/home/HomeWorkspace'
 import { useWorkspaceNavigation, type WorkspaceView } from './features/navigation/workspace-navigation'
+import { PanelWidthSlider } from './features/layout/PanelWidthSlider'
+import { LAYOUT_WIDTHS_UPDATED_EVENT, readLayoutWidths } from './lib/layout-widths'
 import './App.css'
 
 type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'error'
@@ -35,12 +37,16 @@ const navItems: Array<{ view: WorkspaceView; label: string; icon: typeof FileTex
   { view: 'home', label: 'Home', icon: Home },
   { view: 'artifacts', label: 'Artifacts', icon: BookOpen },
   { view: 'canvas', label: 'Canvas', icon: PanelRightClose },
-  { view: 'graph', label: 'Graph', icon: Network },
   { view: 'settings', label: 'Settings', icon: Settings },
 ]
 
 function displayTitle(note: LumiNote) {
   return note.title.trim() || 'Untitled note'
+}
+
+function recentChatTime(chat: RecentChat) {
+  const timestamp = Date.parse(chat.updatedAt ?? '')
+  return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 function App() {
@@ -53,9 +59,27 @@ function App() {
   const [moveParentId, setMoveParentId] = useState('')
   const [isNavigationOpen, setNavigationOpen] = useState(false)
   const [isCoachOpen, setCoachOpen] = useState(false)
+  const [recentChats, setRecentChats] = useState<RecentChat[]>(readRecentChats)
+  const [coachSessionRequest, setCoachSessionRequest] = useState<{ sessionId: string; request: number } | null>(null)
   const [isSearchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
+  useEffect(() => {
+    const refreshRecentChats = () => setRecentChats(readRecentChats())
+    window.addEventListener(RECENT_CHATS_UPDATED_EVENT, refreshRecentChats)
+    return () => window.removeEventListener(RECENT_CHATS_UPDATED_EVENT, refreshRecentChats)
+  }, [])
+  useEffect(() => {
+    const applyLayoutWidths = () => {
+      const widths = readLayoutWidths()
+      const root = document.documentElement
+      root.style.setProperty('--sidebar-width', `${widths.sidebar}px`)
+      root.style.setProperty('--coach-width', `${widths.coach}px`)
+    }
+    applyLayoutWidths()
+    window.addEventListener(LAYOUT_WIDTHS_UPDATED_EVENT, applyLayoutWidths)
+    return () => window.removeEventListener(LAYOUT_WIDTHS_UPDATED_EVENT, applyLayoutWidths)
+  }, [])
   const workspace = useQuery({ queryKey: lumiQueryKeys.workspace, queryFn: getWorkspace })
   const canvases = useQuery({ queryKey: lumiQueryKeys.canvases, queryFn: getCanvases })
   const preferences = useQuery({ queryKey: lumiQueryKeys.settings, queryFn: getApplicationSettings })
@@ -193,7 +217,7 @@ function App() {
       <aside className={`workspace-nav ${isNavigationOpen ? 'is-open' : ''}`} aria-label="Workspace navigation">
         <div className="nav-header">
           <div className="brand" aria-label="Lumi">
-            <span className="brand-mark" aria-hidden="true">L</span>
+            <img className="brand-mark" src="/lumi-mark.svg" alt="" />
             <span>Lumi</span>
           </div>
           <button className="mobile-nav-close icon-button" type="button" aria-label="Close navigation" onClick={() => setNavigationOpen(false)}>
@@ -250,22 +274,23 @@ function App() {
 
           <section className="nav-section" aria-labelledby="recent-heading">
             <div className="section-heading"><h2 id="recent-heading">Recent</h2></div>
-            {workspace.isLoading ? (
-              <div className="nav-loading" aria-label="Loading recent notes" />
-            ) : (workspace.data?.notes.length || canvases.data?.length) ? (
-              [...(workspace.data?.notes ?? []).map((item) => ({ kind: 'note' as const, id: item.id, title: displayTitle(item), updatedAt: item.updatedAt })), ...(canvases.data ?? []).map((item) => ({ kind: 'canvas' as const, id: item.id, title: item.title, updatedAt: item.updatedAt }))]
-                .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+            {recentChats.length ? (
+              [...recentChats]
+                .sort((a, b) => recentChatTime(b) - recentChatTime(a))
                 .slice(0, Math.min(20, Math.max(1, Number(preferences.data?.recentLimit ?? 12))))
-                .map((item) => <button className={`note-row ${item.kind === 'note' ? selectedNote?.id === item.id ? 'is-selected' : '' : route.fileId === item.id ? 'is-selected' : ''}`} type="button" key={item.kind + '-' + item.id} onClick={() => { if (item.kind === 'note') navigate('notes', { noteId: item.id }); else navigate('canvas', { fileId: item.id }); setNavigationOpen(false) }}>
-                  {item.kind === 'note' ? <FileText aria-hidden="true" /> : <PanelRightClose aria-hidden="true" />}<span>{item.title}</span>
+                .map((chat) => <button className={`note-row ${isCoachOpen && coachSessionRequest?.sessionId === chat.sessionId ? 'is-selected' : ''}`} type="button" key={chat.sessionId} onClick={() => { setCoachSessionRequest((current) => ({ sessionId: chat.sessionId, request: (current?.request ?? 0) + 1 })); setCoachOpen(true); setNavigationOpen(false) }}>
+                  <MessageSquare aria-hidden="true" /><span>{chat.title}</span>
                 </button>)
             ) : (
-              <p className="nav-empty">Your recent notes will appear here.</p>
+              <p className="nav-empty">Your recent Coach chats will appear here.</p>
             )}
           </section>
         </nav>
 
-        <div className="nav-footer"><span className="local-label">Local workspace</span></div>
+        <div className="nav-footer">
+          <PanelWidthSlider panel="sidebar" label="Sidebar width" />
+          <span className="local-label">Local workspace</span>
+        </div>
       </aside>
 
       {isNavigationOpen && <button className="nav-backdrop" type="button" aria-label="Close navigation" onClick={() => setNavigationOpen(false)} />}
@@ -297,7 +322,7 @@ function App() {
           <span>Coach Agent</span>
         </button>
       </aside>
-      {isCoachOpen && <CoachPanel note={view === 'canvas' && route.fileId ? undefined : selectedNote} canvas={view === 'canvas' ? selectedCanvas : undefined} notes={workspace.data?.notes ?? []} onClose={() => setCoachOpen(false)} />}
+      {isCoachOpen && <CoachPanel note={view === 'canvas' && route.fileId ? undefined : selectedNote} canvas={view === 'canvas' ? selectedCanvas : undefined} notes={workspace.data?.notes ?? []} openSessionId={coachSessionRequest?.sessionId} openSessionRequest={coachSessionRequest?.request} onClose={() => setCoachOpen(false)} />}
 
       {isSearchOpen && (
         <SearchDialog
@@ -317,7 +342,7 @@ function App() {
 function WorkspaceSurface({ view, settingsSection, note, notes, folders, canvases, preferences, fileId, onOpenCanvas, onBackToCanvases, onSaveStatus, onDeleteNote, onCreateNote, onOpenNote, onOpenView, onOpenSettingsSection }: { view: WorkspaceView; settingsSection: import('./features/navigation/workspace-navigation').SettingsSection; note?: LumiNote; notes: LumiNote[]; folders: LumiFolder[]; canvases: import('./lib/lumi-api').LumiCanvas[]; preferences: LumiApplicationSettings; fileId: string | null; onOpenCanvas: (id: string) => void; onBackToCanvases: () => void; onSaveStatus: (status: SaveStatus) => void; onDeleteNote: (noteId: string) => void; onCreateNote: () => void; onOpenNote: (id: string) => void; onOpenView: (view: WorkspaceView) => void; onOpenSettingsSection: (section: import('./features/navigation/workspace-navigation').SettingsSection) => void }) {
   if (view === 'home') return <HomeWorkspace notes={notes} folders={folders} canvases={canvases} recentLimit={Number(preferences.recentLimit ?? 12)} onOpenNote={onOpenNote} onOpenCanvas={onOpenCanvas} onCreateNote={onCreateNote} onOpenView={(target) => onOpenView(target)} />
   if (view === 'artifacts') return <ArtifactsLibrary preferences={preferences} />
-  if (view === 'canvas') return <CanvasWorkspace notes={notes} selectedCanvasId={fileId} onOpenCanvas={onOpenCanvas} onBackToCanvases={onBackToCanvases} onOpenNote={onOpenNote} />
+  if (view === 'canvas') return <CanvasWorkspace notes={notes} selectedCanvasId={fileId} onOpenCanvas={onOpenCanvas} onBackToCanvases={onBackToCanvases} onOpenNote={onOpenNote} onCreateNote={onCreateNote} />
   if (view === 'graph') return <GraphWorkspace onOpenNote={onOpenNote} />
   if (view === 'settings') return <SettingsWorkspace activeTab={settingsSection} onTabChange={onOpenSettingsSection} />
 

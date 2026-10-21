@@ -218,6 +218,9 @@ export function importWorkspace(workspace: Record<string, unknown>): Promise<Rec
 }
 export interface LumiProviderSettings { provider: string; providerId: string; model: string; baseUrl: string; apiKeyConfigured: boolean; restartRequired?: boolean }
 export function getProviderSettings(): Promise<LumiProviderSettings> { return request('/api/settings') }
+export function listProviderModels(input: { provider: string; baseUrl: string; apiKey?: string }): Promise<{ models: string[] }> {
+  return request('/api/settings/models', { method: 'POST', body: JSON.stringify(input) })
+}
 export function saveProviderSettings(input: { provider: string; model: string; baseUrl: string; apiKey?: string }): Promise<{ saved: boolean; restartRequired: boolean; reconnecting: boolean; apiKeyConfigured: boolean }> {
   return request('/api/settings', { method: 'POST', body: JSON.stringify(input) })
 }

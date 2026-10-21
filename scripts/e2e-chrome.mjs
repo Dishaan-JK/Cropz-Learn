@@ -89,11 +89,17 @@ async function main() {
 
   try {
     await client.call('Page.enable')
+    await client.call('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: tempDirectory })
     await client.call('DOM.enable')
     await waitFor("Boolean(document.querySelector('.app-shell'))", 'the Lumi application shell')
-    await evaluate("[...document.querySelectorAll('.nav-group button')].find((button) => button.textContent.trim() === 'Notes')?.click()")
-    await waitFor("Boolean(document.querySelector('#note-title'))", 'the note workspace')
     const initialWorkspace = await evaluate("({ hasAppShell: Boolean(document.querySelector('.app-shell')), hasNoteEditor: Boolean(document.querySelector('#note-title')) })")
+    const sidebarResized = await evaluate(`(() => { const input = document.querySelector('#panel-width-sidebar'); if (!input) return false; const original = input.value; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(input, '280'); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); const applied = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim() === '280px'; set.call(input, original); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); return applied })()`)
+    if (!sidebarResized) throw new Error('The sidebar width slider did not apply its value in real time.')
+    await evaluate("document.querySelector('.coach-trigger')?.click()")
+    await waitFor("Boolean(document.querySelector('#panel-width-coach'))", 'the Coach width control')
+    const coachResized = await evaluate(`(() => { const input = document.querySelector('#panel-width-coach'); if (!input) return false; const original = input.value; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(input, '520'); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); const applied = getComputedStyle(document.documentElement).getPropertyValue('--coach-width').trim() === '520px'; set.call(input, original); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); return applied })()`)
+    if (!coachResized) throw new Error('The Coach width slider did not apply its value in real time.')
+    await evaluate("document.querySelector('.coach-drawer button[aria-label=\"Close Coach\"]')?.click()")
     const artifactStatus = await evaluate("fetch('/api/artifacts').then((response) => response.status)", true)
 
     // Exercise the real React file-input handler and backend attachment route.
@@ -124,6 +130,10 @@ async function main() {
     await evaluate("[...document.querySelectorAll('button')].find((button) => button.textContent.trim() === 'Artifacts')?.click()")
     await waitFor("Boolean(document.querySelector('#library-title'))", 'the artifacts library')
     await waitFor("Boolean(document.querySelector('.artifact-filters')) || Boolean(document.querySelector('.artifact-empty'))", 'artifact data load')
+    await evaluate("document.querySelector('.library-refresh')?.click()")
+    await waitFor("document.querySelector('.library-refresh') && !document.querySelector('.library-refresh').disabled", 'artifact refresh completion')
+    const artifactApiCount = await evaluate("fetch('/api/artifacts').then((response) => response.json()).then((items) => items.length)", true)
+    await waitFor(`document.querySelectorAll('.artifact-card').length === ${artifactApiCount}`, 'the artifact list to match the refreshed backend')
     const library = await evaluate("({ hasLibrary: Boolean(document.querySelector('#library-title')), artifactCards: document.querySelectorAll('.artifact-card').length })")
     let detailOpened = false
     if (library.artifactCards > 0) {
@@ -131,7 +141,6 @@ async function main() {
       await waitFor("Boolean(document.querySelector('.artifact-detail'))", 'artifact detail')
       detailOpened = await evaluate("Boolean(document.querySelector('.artifact-detail'))")
     }
-    const artifactApiCount = await evaluate("fetch('/api/artifacts').then((response) => response.json()).then((items) => items.length)", true)
     if (library.artifactCards !== artifactApiCount) throw new Error(`Artifact list mismatch: UI=${library.artifactCards}, API=${artifactApiCount}.`)
     if (artifactApiCount > 0 && !detailOpened) throw new Error('An artifact card did not open its detail view.')
 
@@ -215,8 +224,8 @@ async function main() {
     const importedNotes = await evaluate("fetch('/api/notes').then((response) => response.json()).then((notes) => notes.length)", true)
     const liveCoachResults = []
     if (process.env.LUMI_E2E_LIVE_COACH === '1') {
-      await evaluate("[...document.querySelectorAll('.nav-group button')].find((button) => button.textContent.trim() === 'Notes')?.click()")
-      await waitFor("Boolean(document.querySelector('#note-title'))", 'Notes before live Coach coverage')
+      await evaluate("document.querySelector('.new-note-button')?.click()")
+      await waitFor("Boolean(document.querySelector('#note-title'))", 'a note before live Coach coverage')
       await evaluate("document.querySelector('.coach-trigger')?.click()")
       await waitFor("Boolean(document.querySelector('.coach-drawer'))", 'the live Coach drawer')
       const liveAgents = [
@@ -237,7 +246,7 @@ async function main() {
         liveCoachResults.push({ label, agentPath, responded: Boolean(result.reply) })
       }
     }
-    console.log(JSON.stringify({ initialWorkspace, artifactStatus, library, detailOpened, responsive, attachmentPath, attachmentSaved, attachmentRendered, mathRendered, settingsReloaded: true, profileCleared, learningCleared, exportDownloaded: true, importCancelled: true, importConfirmed: true, importedNotes, liveCoachResults }))
+    console.log(JSON.stringify({ initialWorkspace, sidebarResized, coachResized, artifactStatus, library, detailOpened, responsive, attachmentPath, attachmentSaved, attachmentRendered, mathRendered, settingsReloaded: true, profileCleared, learningCleared, exportDownloaded: true, importCancelled: true, importConfirmed: true, importedNotes, liveCoachResults }))
   } finally {
     client.close()
     await rm(tempDirectory, { recursive: true, force: true })
