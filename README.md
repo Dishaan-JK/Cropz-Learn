@@ -68,6 +68,16 @@ The executable can run without Node, Dart, or the source checkouts installed.
 Build it separately on each target OS and CPU architecture; this script emits
 Linux x86_64 only.
 
+Before launching on another computer, run `scripts/prepare-linux-runtime.sh`.
+It checks that the machine is x86_64 and has glibc 2.39 or newer, then uses the
+distro package manager to update an older glibc where supported and install
+`xdg-utils` if `xdg-open` is missing. It recognizes Debian/Ubuntu/Mint and
+derivatives, Fedora/RHEL-family systems, Arch/Manjaro/Omarchy, openSUSE, Void,
+and Gentoo. Arch-family updates use the required full `pacman -Syu` upgrade;
+other supported systems receive targeted package updates. It does not install
+a browser: use any browser you already have and open the local URL printed by
+Lumi. Alpine/musl and non-x86_64 machines need a separately built executable.
+
 ## Design reference
 
 The approved concept is the [Lumi React Workspace canvas](https://superdesign.dev/teams/a4c9d57a-42d9-4578-8e2e-a8209329992f/projects/f6b6afec-4846-449e-b392-21418bc6047b).
