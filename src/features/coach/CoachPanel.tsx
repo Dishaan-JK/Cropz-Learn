@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowUp, Bot, RotateCcw, Trash2, X } from 'lucide-react'
 import { deleteAgentConversation, loadAgentConversation, lumiQueryKeys, streamAgentMessage, type LumiCanvas, type LumiChatMessage, type LumiNote } from '../../lib/lumi-api'
 import { MarkdownPreview } from '../notes/MarkdownPreview'
+import { focusActionInstructions, readFocusAgentAction, withoutFocusCommands, type FocusAgentAction } from '../focus/focus-agent-action'
 import { PanelWidthSlider } from '../layout/PanelWidthSlider'
 
 const assistant = { path: '/api/assistant', label: 'Lumi Coach' }
@@ -43,7 +44,8 @@ function persistRecentChats(chats: RecentChat[]) {
   window.dispatchEvent(new Event(RECENT_CHATS_UPDATED_EVENT))
 }
 
-export function CoachPanel({ note, canvas, notes = [], openSessionId, openSessionRequest, onClose }: { note?: LumiNote; canvas?: LumiCanvas; notes?: LumiNote[]; openSessionId?: string | null; openSessionRequest?: number; onClose: () => void }) {
+export function CoachPanel({ note, canvas, notes = [], openSessionId, openSessionRequest, onStartFocus, onClose }: { note?: LumiNote; canvas?: LumiCanvas; notes?: LumiNote[]; openSessionId?: string | null; openSessionRequest?: number; onStartFocus?: (action: FocusAgentAction) => boolean; onClose: () => void }) {
+  const queryClient = useQueryClient()
   const [sessionId, setSessionId] = useState<string | null>(() => {
     if (isSessionId(openSessionId)) return openSessionId
     const stored = localStorage.getItem(`lumi.chat.session.${assistant.path}`)
@@ -90,21 +92,43 @@ export function CoachPanel({ note, canvas, notes = [], openSessionId, openSessio
       })() : ''
       const noteContext = note ? `Use this open note if relevant.\n\nNote: ${note.title}\n${note.content}` : ''
       const context = [canvasContext, noteContext].filter(Boolean).join('\n\n')
-      const contextualPrompt = context ? `${context}\n\nRequest: ${prompt}` : prompt
-      return streamAgentMessage(agentPath, sessionId, contextualPrompt, (partial) => {
-        setMessages((current) => [...current.slice(0, -1), { role: 'assistant', text: partial }])
-      })
+      const requestId = onStartFocus && /\b(?:focus|timer|pomodoro)\b/i.test(prompt) ? Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, '0')).join('') : null
+      const capability = requestId ? focusActionInstructions(requestId) : ''
+      const contextualPrompt = capability ? [capability, context, `Request: ${prompt}`].filter(Boolean).join('\n\n') : context ? `${context}\n\nRequest: ${prompt}` : prompt
+      const result = await streamAgentMessage(agentPath, sessionId, contextualPrompt, (partial) => {
+        setMessages((current) => [...current.slice(0, -1), { role: 'assistant', text: withoutFocusCommands(partial) }])
+      }, prompt)
+      return { ...result, focusAction: requestId ? readFocusAgentAction(result.text, requestId) : null }
     },
-    onMutate: (prompt) => { setError(null); setMessages((current) => [...current, { role: 'user', text: prompt }, { role: 'assistant', text: '' }]) },
-    onSuccess: (result) => {
+    onMutate: (prompt) => {
+      const previousMessages = displayMessages
+      setError(null)
+      setMessages([...previousMessages, { role: 'user', text: prompt }, { role: 'assistant', text: '' }])
+      return { previousMessages }
+    },
+    onSuccess: async (result, prompt, context) => {
       if (result.sessionId) {
         localStorage.setItem(sessionKey, result.sessionId)
         setSessionId(result.sessionId)
         const current = readRecentChats()
-        const next = [{ agentPath, sessionId: result.sessionId, title: current.find((item) => item.agentPath === agentPath && item.sessionId === result.sessionId)?.title ?? messages.findLast((item) => item.role === 'user')?.text.slice(0, 72) ?? 'Conversation', updatedAt: new Date().toISOString() }, ...current.filter((item) => item.agentPath !== agentPath || item.sessionId !== result.sessionId)].slice(0, 12)
+        const next = [{ agentPath, sessionId: result.sessionId, title: current.find((item) => item.agentPath === agentPath && item.sessionId === result.sessionId)?.title ?? prompt.slice(0, 72), updatedAt: new Date().toISOString() }, ...current.filter((item) => item.agentPath !== agentPath || item.sessionId !== result.sessionId)].slice(0, 12)
         persistRecentChats(next)
       }
-      setMessages((current) => [...current.slice(0, -1), { role: 'assistant', text: result.text || 'The agent completed without a text response.' }])
+      const started = result.focusAction ? onStartFocus?.(result.focusAction) : undefined
+      const actionMessage = result.focusAction ? started
+        ? `Focus timer started for ${result.focusAction.minutes} minutes. Open Focus mode to manage or switch it off. Fullscreen is available there.`
+        : 'A focus timer is already active. Go to Focus mode and switch it off before starting another.' : ''
+      const reply = [withoutFocusCommands(result.text), actionMessage].filter(Boolean).join('\n\n')
+      const completedMessages: LumiChatMessage[] = [...(context?.previousMessages ?? []), { role: 'user', text: prompt }, { role: 'assistant', text: reply || 'The agent completed without a text response.' }]
+      setMessages(completedMessages)
+      if (result.sessionId) queryClient.setQueryData(lumiQueryKeys.agentConversation(agentPath, result.sessionId), completedMessages)
+      // Agent tools mutate the same stores used by these workspace queries.
+      // Refresh after completion so newly attached note IDs resolve immediately.
+      await Promise.allSettled([
+        lumiQueryKeys.workspace, lumiQueryKeys.canvases, lumiQueryKeys.artifacts,
+        lumiQueryKeys.graph, lumiQueryKeys.profile, lumiQueryKeys.learningRecord,
+        lumiQueryKeys.diagnostics, ['note-search'],
+      ].map((queryKey) => queryClient.invalidateQueries({ queryKey })))
     },
     onError: (reason) => { setError(reason instanceof Error ? reason.message : 'The Coach could not complete that request.'); setMessages((current) => current.at(-1)?.role === 'assistant' && !current.at(-1)?.text ? current.slice(0, -1) : current) },
   })
@@ -137,7 +161,7 @@ export function CoachPanel({ note, canvas, notes = [], openSessionId, openSessio
     <header className="coach-header"><div className="coach-heading-mark"><Bot aria-hidden="true" /></div><div className="coach-agent-heading"><p className="eyebrow">Learning companion</p><strong>{agent.label}</strong></div><button type="button" className="small-icon-button" aria-label="Start new conversation" disabled={send.isPending} onClick={() => void startNew()}><RotateCcw aria-hidden="true" /></button><button type="button" className="small-icon-button" aria-label="Delete saved conversation" disabled={!sessionId || send.isPending} onClick={() => void deleteCurrentChat()}><Trash2 aria-hidden="true" /></button><button type="button" className="small-icon-button" aria-label="Close Coach" onClick={onClose}><X aria-hidden="true" /></button></header>
     <div className="coach-width-control"><PanelWidthSlider panel="coach" label="Coach width" /></div>
     <p className="coach-routing-note">Lumi automatically routes each request to the right specialist.</p>
-    <div className="coach-messages" aria-live="polite">{history.isFetching && sessionId && <p className="coach-loading">Restoring saved conversation…</p>}{displayMessages.length === 0 && !history.isFetching && <div className="coach-welcome"><p className="eyebrow">A thoughtful place to learn</p><h2>{canvas ? `Explore “${canvas.title}”` : note ? `Study “${note.title || 'Untitled note'}”` : 'What are you curious about?'}</h2><p>Ask for an explanation, practice, or a different perspective. Your conversation stays on this device through Lumi’s local service.</p><div className="coach-prompt-list">{defaultPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => submit(prompt)}>{prompt}</button>)}</div></div>}{displayMessages.map((message, index) => <article className={`coach-message is-${message.role}`} key={`${index}-${message.role}`}><span>{message.role === 'user' ? 'You' : agent.label}</span>{message.role === 'assistant' ? <MarkdownPreview content={message.text || (send.isPending && index === displayMessages.length - 1 ? 'Thinking…' : '')} notes={notes} /> : <p>{message.text}</p>}</article>)}{error && <p className="coach-error" role="alert">{error}</p>}</div>
+    <div className="coach-messages" aria-live="polite">{history.isFetching && sessionId && <p className="coach-loading">Restoring saved conversation…</p>}{displayMessages.length === 0 && !history.isFetching && <div className="coach-welcome"><p className="eyebrow">A thoughtful place to learn</p><h2>{canvas ? `Explore “${canvas.title}”` : note ? `Study “${note.title || 'Untitled note'}”` : 'What are you curious about?'}</h2><p>Ask for an explanation, practice, or a different perspective. Your conversation stays on this device through Lumi’s local service.</p><div className="coach-prompt-list">{defaultPrompts.map((prompt) => <button type="button" key={prompt} onClick={() => submit(prompt)}>{prompt}</button>)}</div></div>}{displayMessages.map((message, index) => <article className={`coach-message is-${message.role}`} key={`${index}-${message.role}`}><span>{message.role === 'user' ? 'You' : agent.label}</span>{message.role === 'assistant' ? <MarkdownPreview content={withoutFocusCommands(message.text) || (send.isPending && index === displayMessages.length - 1 ? 'Thinking…' : '')} notes={notes} /> : <p>{message.text}</p>}</article>)}{error && <p className="coach-error" role="alert">{error}</p>}</div>
     <form className="coach-compose" onSubmit={(event) => { event.preventDefault(); submit() }}><label className="sr-only" htmlFor="coach-message">Message the Coach</label><textarea id="coach-message" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask Lumi…" rows={2} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} /><button type="submit" aria-label="Send message" disabled={!draft.trim() || send.isPending}>{send.isPending ? <span className="coach-spinner" /> : <ArrowUp aria-hidden="true" />}</button></form>
   </aside></div>
 }

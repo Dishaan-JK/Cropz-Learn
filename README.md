@@ -188,3 +188,60 @@ The Chrome end-to-end workflow is described in [BACKEND.md](BACKEND.md).
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) tracks project scope and direction.
 
 The [Lumi React Workspace canvas](https://superdesign.dev/teams/a4c9d57a-42d9-4578-8e2e-a8209329992f/projects/f6b6afec-4846-449e-b392-21418bc6047b) is a design reference; its generated HTML is not used at runtime.
+
+## Focus mode
+
+Open **Focus mode → Create Timer**, choose 1–240 minutes and an optional study
+intention, then start. The countdown appears in the Focus tab and in a floating
+widget at the top center of every workspace page. Drag its handle (or focus the
+handle and use arrow keys) to move it; the reset-position button centers it
+again. Pause/resume works from either surface. Return to the Focus tab and use
+**Switch off timer** to end early. Pausing keeps focus protection enabled.
+
+Forest study, Quiet night, and Warm sand temporarily theme the whole app while
+the timer is running or paused. A contrasting shadow outlines the app edges
+(dark on light themes, light on Quiet night). Saved appearance preferences are
+not changed; the usual workspace theme returns on switch-off or expiry. The timer and Focus theme are stored
+in this browser's local storage; a deadline keeps the countdown accurate after
+background throttling and reload. Open tabs on the same origin synchronize timer
+changes. Clearing browser storage removes this state; it is not synced through
+the Dart workspace service.
+
+Ask Coach, for example, **“Start a 25 minute focus timer for biology.”** The client
+advertises a browser action to the existing assistant and validates its completed
+response against a unique request ID, duration bounds, and supported themes.
+Only the completed current reply can start a timer; restored conversations never
+execute actions. An unfinished timer is never automatically replaced. This is a
+client-side action bridge, not a new Dart/Genkit server tool. The configured model
+must follow the action protocol; live-provider behavior is not guaranteed by the
+mocked integration tests. Starting a timer manually requests fullscreen through the Fullscreen API.
+Coach-created or restored sessions offer **Enter fullscreen** in the floating
+widget because the browser requires a fresh student click.
+
+While a session is active, links that leave the current document are intercepted
+with a reminder to switch off the timer in Focus mode. Reload/close attempts use
+the browser's standard confirmation where supported. Tab visibility and
+fullscreen exits show a reminder when the student returns. Fullscreen
+can also be requested from the Focus tab or floating widget. Browsers always retain
+Esc, tab switching, browser controls, and OS app switching: **a website cannot
+block other applications or force the student to stay**. Device-level enforcement
+would require a separately installed, authorized native/kiosk integration.
+
+When the timer expires, an in-app modal announces **Your time is over.** and
+offers **End Focus Session**. The usual theme returns immediately at expiry;
+the button dismisses the popup, clears the timer, and exits fullscreen. Esc in
+the completion popup also ends the session. An expired session restored after
+a reload shows the same popup until acknowledged.
+
+
+Coach stores the exact Student prompt in message metadata so restored **You**
+messages show the request, while attached note/Canvas context stays available to
+the model. Older context-wrapped messages have a compatibility reader. Tool
+exchanges and marked reasoning are excluded from the visible transcript. A
+completed Coach turn refreshes workspace queries so created note cards display
+the saved title and content immediately.
+
+The sibling Dart backend provides **createWorkspaceNote** for standalone notes,
+rejects empty agent-created note drafts, and checks the original Student prompt
+before allowing a new Canvas. Restart the backend after updating these server
+files; refreshing the React page alone does not reload Dart agent definitions.

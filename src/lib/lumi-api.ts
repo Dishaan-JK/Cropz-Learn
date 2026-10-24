@@ -1,3 +1,4 @@
+import { hasToolParts, studentPrompt, visibleMessageText } from './coach-messages'
 const configuredServiceUrl = import.meta.env.VITE_LUMI_SERVICE_URL ?? window.location.origin
 
 export interface LumiNote {
@@ -240,11 +241,6 @@ export function getHardwareReport(): Promise<LumiHardwareReport> { return reques
 
 export interface LumiChatMessage { role: 'user' | 'assistant'; text: string }
 
-function textFromParts(value: unknown): string {
-  if (!Array.isArray(value)) return ''
-  return value.flatMap((part) => part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string' ? [(part as { text: string }).text] : []).join('')
-}
-
 export async function loadAgentConversation(agentPath: string, sessionId: string): Promise<LumiChatMessage[]> {
   const response = await request<Record<string, unknown>>(`${agentPath}/getSnapshot`, {
     method: 'POST',
@@ -255,19 +251,21 @@ export async function loadAgentConversation(agentPath: string, sessionId: string
   const messages = Array.isArray(state.messages) ? state.messages : []
   return messages.flatMap((item) => {
     if (!item || typeof item !== 'object') return []
-    const message = item as { role?: unknown; content?: unknown }
+    const message = item as { role?: unknown; content?: unknown; metadata?: unknown }
     if (!['user', 'model', 'assistant'].includes(String(message.role))) return []
-    const text = textFromParts(message.content)
+    if (hasToolParts(message.content)) return []
+    const rawText = visibleMessageText(message.content)
+    const text = message.role === 'user' ? studentPrompt(rawText, message.metadata) : rawText
     return text ? [{ role: message.role === 'user' ? 'user' as const : 'assistant' as const, text }] : []
   })
 }
 
-export async function streamAgentMessage(agentPath: string, sessionId: string | null, text: string, onText: (partial: string) => void): Promise<{ sessionId: string | null; text: string }> {
+export async function streamAgentMessage(agentPath: string, sessionId: string | null, text: string, onText: (partial: string) => void, prompt?: string): Promise<{ sessionId: string | null; text: string }> {
   const response = await fetch(new URL(agentPath, configuredServiceUrl), {
     method: 'POST',
     headers: { Accept: 'text/event-stream', 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      data: { message: { role: 'user', content: [{ text }] } },
+      data: { message: { role: 'user', content: [{ text }], ...(prompt !== undefined ? { metadata: { lumi: { version: 1, studentPrompt: prompt } } } : {}) } },
       init: sessionId ? { sessionId } : {},
     }),
   })
@@ -284,7 +282,7 @@ export async function streamAgentMessage(agentPath: string, sessionId: string | 
     const event = JSON.parse(data) as Record<string, unknown>
     if (event.error) throw new Error(typeof event.error === 'string' ? event.error : 'The Coach agent failed to answer.')
     const chunk = event.message as { modelChunk?: { content?: unknown } } | undefined
-    const token = textFromParts(chunk?.modelChunk?.content)
+    const token = visibleMessageText(chunk?.modelChunk?.content)
     if (token) { reply += token; onText(reply) }
     const result = event.result as { sessionId?: unknown; state?: { sessionId?: unknown } } | undefined
     const receivedSession = result?.sessionId ?? result?.state?.sessionId

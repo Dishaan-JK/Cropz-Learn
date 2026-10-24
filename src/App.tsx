@@ -15,6 +15,7 @@ import {
   Search,
   Settings,
   Trash2,
+  Timer,
   X,
 } from 'lucide-react'
 import { createFolder, createNote, deleteFolder, deleteNote, getApplicationSettings, getCanvases, getWorkspace, lumiQueryKeys, updateFolder, type LumiApplicationSettings, type LumiFolder, type LumiNote } from './lib/lumi-api'
@@ -29,6 +30,10 @@ import { HomeWorkspace } from './features/home/HomeWorkspace'
 import { useWorkspaceNavigation, type WorkspaceView } from './features/navigation/workspace-navigation'
 import { PanelWidthSlider } from './features/layout/PanelWidthSlider'
 import { LAYOUT_WIDTHS_UPDATED_EVENT, readLayoutWidths } from './lib/layout-widths'
+import { useFocusMode } from './features/focus/useFocusMode'
+import { FocusWorkspace } from './features/focus/FocusWorkspace'
+import { FocusCompletionDialog } from './features/focus/FocusCompletionDialog'
+import { FocusWidget } from './features/focus/FocusWidget'
 import './App.css'
 
 type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'error'
@@ -37,6 +42,7 @@ const navItems: Array<{ view: WorkspaceView; label: string; icon: typeof FileTex
   { view: 'home', label: 'Home', icon: Home },
   { view: 'artifacts', label: 'Artifacts', icon: BookOpen },
   { view: 'canvas', label: 'Canvas', icon: PanelRightClose },
+  { view: 'focus', label: 'Focus mode', icon: Timer },
   { view: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -51,6 +57,7 @@ function recentChatTime(chat: RecentChat) {
 
 function App() {
   const queryClient = useQueryClient()
+  const focus = useFocusMode()
   const [isCreatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [newFolderParentId, setNewFolderParentId] = useState('')
@@ -91,26 +98,28 @@ function App() {
   const selectedCanvas = canvases.data?.find((canvas) => canvas.id === route.fileId)
   const selectedFolderId = route.folderId
   useEffect(() => {
-    if (!preferences.data) return
+    const settings = preferences.data ?? {}
     const root = document.documentElement
-    const theme = String(preferences.data.theme ?? 'light')
+    const theme = String(settings.theme ?? 'light')
     const media = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null
     const applyTheme = () => {
-      const effective = theme === 'system' ? media?.matches ? 'dark' : 'light' : theme
+      const effective = focus.active ? focus.theme === 'midnight' ? 'dark' : 'light' : theme === 'system' ? media?.matches ? 'dark' : 'light' : theme
+      if (focus.active) root.dataset.focusTheme = focus.theme
+      else delete root.dataset.focusTheme
       root.dataset.theme = effective
       const suffix = effective === 'dark' ? 'Dark' : 'Light'
-      root.style.setProperty('--canvas-background', String(preferences.data?.[`canvasBackground${suffix}`] ?? (effective === 'dark' ? '#191C19' : '#F4F1E8')))
-      root.style.setProperty('--canvas-pattern', String(preferences.data?.[`canvasPattern${suffix}`] ?? (effective === 'dark' ? '#465046' : '#C4C7BC')))
+      root.style.setProperty('--canvas-background', focus.active ? 'var(--focus-bg)' : String(settings[`canvasBackground${suffix}`] ?? (effective === 'dark' ? '#191C19' : '#F4F1E8')))
+      root.style.setProperty('--canvas-pattern', focus.active ? 'var(--focus-border)' : String(settings[`canvasPattern${suffix}`] ?? (effective === 'dark' ? '#465046' : '#C4C7BC')))
     }
     applyTheme()
     if (theme === 'system') media?.addEventListener('change', applyTheme)
-    root.dataset.accent = String(preferences.data.accent ?? 'sage')
-    root.dataset.density = String(preferences.data.density ?? 'comfortable')
-    root.dataset.textSize = String(preferences.data.textSize ?? 'standard')
-    root.dataset.reduceMotion = String(Boolean(preferences.data.reduceMotion))
-    root.dataset.canvasPattern = String(preferences.data.canvasPattern ?? 'dots')
-    return () => { media?.removeEventListener('change', applyTheme) }
-  }, [preferences.data])
+    root.dataset.accent = String(settings.accent ?? 'sage')
+    root.dataset.density = String(settings.density ?? 'comfortable')
+    root.dataset.textSize = String(settings.textSize ?? 'standard')
+    root.dataset.reduceMotion = String(Boolean(settings.reduceMotion))
+    root.dataset.canvasPattern = String(settings.canvasPattern ?? 'dots')
+    return () => { media?.removeEventListener('change', applyTheme); delete root.dataset.focusTheme }
+  }, [preferences.data, focus.active, focus.theme])
   const createNoteMutation = useMutation({
     mutationFn: () => createNote(selectedFolderId ?? undefined),
     onSuccess: async (note) => {
@@ -204,7 +213,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${focus.session ? 'has-focus-timer' : ''}`}>
       <button
         className="mobile-nav-toggle icon-button"
         type="button"
@@ -308,7 +317,7 @@ function App() {
         </header>
 
         <section className={`workspace-content ${view === 'canvas' && route.fileId ? 'is-canvas-file-content' : ''}`} aria-label="Workspace content">
-          {view === 'settings' ? (
+          {view === 'focus' ? <FocusWorkspace focus={focus} /> : view === 'settings' ? (
             <WorkspaceSurface view={view} settingsSection={route.settingsSection} note={selectedNote} notes={workspace.data?.notes ?? []} folders={workspace.data?.folders ?? []} canvases={canvases.data ?? []} preferences={preferences.data ?? {}} fileId={route.fileId} onOpenCanvas={(fileId) => navigate('canvas', { fileId })} onBackToCanvases={() => navigate('canvas')} onSaveStatus={setSaveStatus} onDeleteNote={(noteId) => removeNoteMutation.mutate(noteId)} onCreateNote={() => createNoteMutation.mutate()} onOpenNote={(noteId) => navigate('notes', { noteId })} onOpenView={navigate} onOpenSettingsSection={(settingsSection) => navigate('settings', { settingsSection })} />
           ) : workspace.isLoading ? <LoadingState /> : workspace.isError ? <ErrorState onRetry={() => workspace.refetch()} /> : (
             <WorkspaceSurface view={view} settingsSection={route.settingsSection} note={selectedNote} notes={workspace.data?.notes ?? []} folders={workspace.data?.folders ?? []} canvases={canvases.data ?? []} preferences={preferences.data ?? {}} fileId={route.fileId} onOpenCanvas={(fileId) => navigate('canvas', { fileId })} onBackToCanvases={() => navigate('canvas')} onSaveStatus={setSaveStatus} onDeleteNote={(noteId) => removeNoteMutation.mutate(noteId)} onCreateNote={() => createNoteMutation.mutate()} onOpenNote={(noteId) => navigate('notes', { noteId })} onOpenView={navigate} onOpenSettingsSection={(settingsSection) => navigate('settings', { settingsSection })} />
@@ -322,8 +331,18 @@ function App() {
           <span>Coach Agent</span>
         </button>
       </aside>
-      {isCoachOpen && <CoachPanel note={view === 'canvas' && route.fileId ? undefined : selectedNote} canvas={view === 'canvas' ? selectedCanvas : undefined} notes={workspace.data?.notes ?? []} openSessionId={coachSessionRequest?.sessionId} openSessionRequest={coachSessionRequest?.request} onClose={() => setCoachOpen(false)} />}
+      {isCoachOpen && <CoachPanel note={view === 'canvas' && route.fileId ? undefined : selectedNote} canvas={view === 'canvas' ? selectedCanvas : undefined} notes={workspace.data?.notes ?? []} openSessionId={coachSessionRequest?.sessionId} openSessionRequest={coachSessionRequest?.request} onStartFocus={(action) => {
+        const started = focus.start(action.minutes, action.label)
+        if (started) {
+          if (action.theme) focus.setTheme(action.theme)
+          navigate('focus')
+        }
+        return started
+      }} onClose={() => setCoachOpen(false)} />}
 
+      {focus.session && <FocusWidget focus={focus} onOpenFocus={() => { navigate('focus'); setCoachOpen(false) }} />}
+      {focus.session?.status === 'completed' && <FocusCompletionDialog onEnd={focus.stop} />}
+      {focus.notice && <div className="focus-notice" role="status" aria-label="Focus reminder"><p>{focus.notice}</p>{focus.active && <button type="button" onClick={() => { navigate('focus'); setCoachOpen(false); focus.setNotice('') }}>Go to Focus mode</button>}<button type="button" aria-label="Dismiss focus reminder" onClick={() => focus.setNotice('')}><X size={16} /></button></div>}
       {isSearchOpen && (
         <SearchDialog
           query={searchQuery}

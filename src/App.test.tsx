@@ -7,8 +7,9 @@ import App from './App'
 const fetchMock = vi.fn()
 let canvasFixtures: Array<Record<string, unknown>> = []
 let startPageFixture = 'notes'
+let createdAgentNote = false
 let coachReplyCount = 0
-let coachReplyFixture: string | null = null
+let coachReplyFixture: string | ((init?: RequestInit) => string) | null = null
 
 function renderApp() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -20,6 +21,7 @@ describe('Lumi React workspace shell', () => {
     window.history.replaceState({}, '', '/')
     canvasFixtures = []
     startPageFixture = 'notes'
+    createdAgentNote = false
     coachReplyCount = 0
     coachReplyFixture = null
     window.localStorage.clear()
@@ -64,7 +66,7 @@ describe('Lumi React workspace shell', () => {
       if (request.pathname === '/api/settings') return Promise.resolve(new Response(JSON.stringify({ provider: 'Local Ollama', providerId: 'ollama', model: 'qwen2.5:3b', baseUrl: 'http://127.0.0.1:11434/v1', apiKeyConfigured: false, restartRequired: false })))
       if (['/api/assistant', '/api/agents/study', '/api/agents/connections', '/api/agents/tester', '/api/agents/reviewer'].includes(request.pathname) && init?.method === 'POST') {
         const replyIndex = ++coachReplyCount
-        const reply = coachReplyFixture ?? `Ready ${replyIndex}`
+        const reply = typeof coachReplyFixture === 'function' ? coachReplyFixture(init) : coachReplyFixture ?? `Ready ${replyIndex}`
         const frames = [
           { message: { modelChunk: { content: [{ text: reply }] } } },
           { result: { sessionId: `session-${replyIndex}` } },
@@ -102,6 +104,7 @@ describe('Lumi React workspace shell', () => {
         return Promise.resolve(new Response(JSON.stringify([
           { id: 'note-1', title: 'Learning the senses', content: 'A note about attention.', folderId: 'folder-1', updatedAt: '2026-10-20T00:00:00.000Z' },
           { id: 'note-2', title: 'Attention', content: 'Related ideas.', updatedAt: '2026-10-19T00:00:00.000Z' },
+          ...(createdAgentNote ? [{ id: 'agent-note', title: 'Quantum Mechanics', content: 'Quantum mechanics describes microscopic states and probabilities.', updatedAt: '2026-10-24T00:00:00.000Z' }] : []),
         ])))
       }
       if (request.pathname === '/api/folders') {
@@ -491,4 +494,150 @@ $$` } })
     })
     await waitFor(() => expect(screen.getByText('Saved locally')).toBeInTheDocument())
   })
+  it('creates a focus timer through its dialog, persists it across navigation and reload, and guards leaving until switched off', async () => {
+    const user = userEvent.setup()
+    const modal = vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', '') })
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: modal })
+    const close = vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open') })
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: close })
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: requestFullscreen })
+    try {
+      const app = renderApp()
+      await user.click(screen.getByRole('button', { name: 'Focus mode' }))
+      expect(window.location.pathname).toBe('/focus')
+      await user.click(screen.getByRole('button', { name: /Quiet night/ }))
+      await user.click(screen.getByRole('button', { name: 'Create Timer' }))
+      const dialog = screen.getByRole('dialog', { name: 'Create Timer' })
+      await user.type(within(dialog).getByLabelText('What are you focusing on?'), 'Biology revision')
+      await user.click(within(dialog).getByRole('button', { name: '50 min' }))
+      await user.click(within(dialog).getByRole('button', { name: 'Start focus session' }))
+      expect(requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' })
+      expect(screen.queryByRole('status', { name: 'Focus reminder' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(document.documentElement).toHaveAttribute('data-focus-theme', 'midnight')
+      expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+      expect(screen.getByRole('timer')).toHaveTextContent('50:00')
+      expect(screen.getByRole('region', { name: 'Floating focus timer' })).toHaveAttribute('data-focus-theme', 'midnight')
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Move focus timer (drag or use arrow keys)' }), { key: 'ArrowDown' })
+      expect(screen.getByRole('region', { name: 'Floating focus timer' })).toHaveStyle({ top: '20px' })
+      await user.click(screen.getByRole('button', { name: 'Reset timer widget position' }))
+      expect(screen.getByRole('region', { name: 'Floating focus timer' }).style.top).toBe('')
+      await user.click(screen.getByRole('button', { name: 'Pause timer' }))
+      expect(screen.getByText('Taking a breath')).toBeInTheDocument()
+      const leaving = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(leaving)
+      expect(leaving.defaultPrevented).toBe(true)
+      const link = document.createElement('a')
+      link.href = 'https://example.com/'
+      document.body.append(link)
+      const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+      fireEvent(link, click)
+      expect(click.defaultPrevented).toBe(true)
+      expect(screen.getByRole('status', { name: 'Focus reminder' })).toHaveTextContent('switch off the timer')
+      link.remove()
+      await user.click(screen.getByRole('button', { name: 'Home' }))
+      expect(screen.getByRole('region', { name: 'Floating focus timer' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Switch off timer' })).not.toBeInTheDocument()
+      app.unmount()
+      renderApp()
+      await user.click(screen.getByRole('button', { name: 'Manage' }))
+      expect(screen.getByRole('timer')).toHaveTextContent('50:00')
+      expect(screen.getByText('Taking a breath')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Resume timer' }))
+      await user.click(screen.getByRole('button', { name: 'Switch off timer' }))
+      expect(screen.queryByRole('region', { name: 'Floating focus timer' })).not.toBeInTheDocument()
+      const afterStop = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(afterStop)
+      expect(afterStop.defaultPrevented).toBe(false)
+      expect(localStorage.getItem('lumi.focus.v1')).toBeNull()
+      expect(document.documentElement).not.toHaveAttribute('data-focus-theme')
+      expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+    } finally { Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal'); Reflect.deleteProperty(HTMLDialogElement.prototype, 'close'); Reflect.deleteProperty(document.documentElement, 'requestFullscreen') }
+  })
+
+  it('executes a request-bound Coach focus action once and refuses to replace an active timer', async () => {
+    const user = userEvent.setup()
+    coachReplyFixture = (init) => {
+      const request = JSON.parse(String(init?.body)).data.message.content[0].text as string
+      const requestId = request.match(/"requestId":"([^"]+)"/)?.[1]
+      return 'Let us focus.\n```lumi-focus\n' + JSON.stringify({ requestId, action: 'start', minutes: 25, label: 'Biology', theme: 'sand' }) + '\n```'
+    }
+    renderApp()
+    await user.click(screen.getByRole('button', { name: 'Open Coach Agent' }))
+    await user.type(screen.getByLabelText('Message the Coach'), 'Start a 25 minute focus timer for biology')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await screen.findByText(/Focus timer started for 25 minutes/)
+    expect(window.location.pathname).toBe('/focus')
+    expect(screen.getByRole('timer')).toHaveTextContent('25:00')
+    expect(screen.getByRole('region', { name: 'Floating focus timer' })).toHaveAttribute('data-focus-theme', 'sand')
+    const session = localStorage.getItem('lumi.focus.v1')
+    await user.type(screen.getByLabelText('Message the Coach'), 'Start another 25 minute focus timer')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await screen.findByText(/A focus timer is already active/)
+    expect(localStorage.getItem('lumi.focus.v1')).toBe(session)
+  })
+
+  it('restores the workspace theme at expiry and shows a completion popup until the session is ended', async () => {
+    const showModal = vi.fn(function (this: HTMLDialogElement) { this.setAttribute('open', ''); this.querySelector<HTMLElement>('button')?.focus() })
+    const close = vi.fn(function (this: HTMLDialogElement) { this.removeAttribute('open') })
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: showModal })
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: close })
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined)
+    const exitFullscreen = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: requestFullscreen })
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exitFullscreen })
+    try {
+      localStorage.setItem('lumi.focus.theme', 'midnight')
+      localStorage.setItem('lumi.focus.v1', JSON.stringify({ durationSeconds: 60, remainingSeconds: 60, endsAt: Date.now() + 60_000, status: 'running', label: 'Study' }))
+      renderApp()
+      await screen.findByRole('button', { name: 'Enter fullscreen' })
+      expect(document.documentElement).toHaveAttribute('data-focus-theme', 'midnight')
+      await userEvent.click(screen.getByRole('button', { name: 'Enter fullscreen' }))
+      expect(requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' })
+      Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: document.documentElement })
+      fireEvent(document, new Event('fullscreenchange'))
+      expect(screen.queryByRole('button', { name: 'Enter fullscreen' })).not.toBeInTheDocument()
+      // Simulate waking up after the deadline without waiting for a real minute.
+      const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 120_000)
+      fireEvent(document, new Event('visibilitychange'))
+      now.mockRestore()
+      const popup = await screen.findByRole('dialog', { name: 'Your time is over.' })
+      expect(document.documentElement).not.toHaveAttribute('data-focus-theme')
+      expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+      expect(within(popup).getByRole('button', { name: 'End Focus Session' })).toHaveFocus()
+      await userEvent.click(within(popup).getByRole('button', { name: 'End Focus Session' }))
+      expect(screen.queryByRole('dialog', { name: 'Your time is over.' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Floating focus timer' })).not.toBeInTheDocument()
+      expect(exitFullscreen).toHaveBeenCalledOnce()
+      expect(localStorage.getItem('lumi.focus.v1')).toBeNull()
+    } finally {
+      cleanup()
+      Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+      Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
+      Reflect.deleteProperty(document.documentElement, 'requestFullscreen')
+      Reflect.deleteProperty(document, 'exitFullscreen')
+      Reflect.deleteProperty(document, 'fullscreenElement')
+    }
+  })
+
+  it('refreshes agent-created notes and resolves their Canvas cards without a page reload', async () => {
+    canvasFixtures = [{ id: 'canvas-1', title: 'Existing study board', description: '', noteIds: ['agent-note'], positions: {}, quizzes: [], updatedAt: '2026-10-24T00:00:00.000Z' }]
+    coachReplyFixture = () => { createdAgentNote = true; return 'Created your Quantum Mechanics note.' }
+    const user = userEvent.setup()
+    renderApp()
+    await screen.findByLabelText('Note title')
+    await user.click(screen.getByRole('button', { name: 'Open Coach Agent' }))
+    await user.type(screen.getByLabelText('Message the Coach'), 'Create a note and write a brief para about Quantum Mechanics')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await screen.findByText('Created your Quantum Mechanics note.')
+    await user.click(screen.getByRole('button', { name: 'Close Coach Agent' }))
+    await user.click(screen.getByRole('button', { name: 'Canvas' }))
+    await user.click(await screen.findByText('Existing study board'))
+    const board = await screen.findByLabelText('Existing study board board')
+    expect(await within(board).findByText('Quantum Mechanics')).toBeInTheDocument()
+    expect(within(board).getByText('Quantum mechanics describes microscopic states and probabilities.')).toBeInTheDocument()
+    expect(within(board).queryByText('No preview available.')).not.toBeInTheDocument()
+  })
+
 })

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export const workspaceViews = ['home', 'notes', 'artifacts', 'canvas', 'graph', 'settings'] as const
+export const workspaceViews = ['home', 'notes', 'artifacts', 'canvas', 'graph', 'focus', 'settings'] as const
 export type WorkspaceView = typeof workspaceViews[number]
 export type SettingsSection = 'general' | 'appearance' | 'ai' | 'learning' | 'workspace' | 'artifacts' | 'privacy' | 'storage' | 'diagnostics' | 'hardware'
 
@@ -19,6 +19,7 @@ const routePath: Record<WorkspaceView, string> = {
   artifacts: '/artifacts',
   canvas: '/canvas',
   graph: '/graph',
+  focus: '/focus',
   settings: '/settings',
 }
 
